@@ -5,11 +5,8 @@ but is currently covered by different licenses for different sections
 
 this file will be udpated to reflect the licenses that apply to various dependencies.
 
-MIT: VQGAN and Clip guided core
+MIT: Clip guided core
 -------------------------------
-VQGAN: MIT License
-Copyright (c) 2020 Patrick Esser and Robin Rombach and Björn Ommer
-
 CLIP guided core: MIT License
 Copyright (c) 2021 Katherine Crowson
 
@@ -30,9 +27,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-diffvg: Apache License 2.0
-
-ClipDraw: No License (contact author: https://github.com/kvfrans/clipdraw/issues/3 )
-
-PixelDraw: No License (contact author: @dribnet)
