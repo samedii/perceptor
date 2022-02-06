@@ -1,22 +1,22 @@
-# pixray
+# perceptor
 
-![Alt text](https://user-images.githubusercontent.com/945979/132954388-1986e4c6-6996-48fd-9e91-91ec97963781.png "deep ocean monsters #pixelart")
+## Install
 
-Pixray is an image generation system. It combines previous ideas including:
+```
+poetry add git+https://github.com/samedii/perceptor.git
+```
 
- * [Perception Engines](https://github.com/dribnet/perceptionengines) which uses image augmentation and iteratively optimises images against an ensemble of classifiers
- * [CLIP guided GAN imagery](https://alexasteinbruck.medium.com/vqgan-clip-how-does-it-work-210a5dca5e52) from [Ryan Murdoch](https://twitter.com/advadnoun) and [Katherine Crowson](https://github.com/crowsonkb) as well as modifictions such as [CLIPDraw](https://twitter.com/kvfrans/status/1409933704856674304) from Kevin Frans
- * Useful ways of navigating latent space from [Sampling Generative Networks](https://github.com/dribnet/plat)
- * (more to come)
+Or, for the old timers:
 
-pixray it itself a python library and command line utility, but is also friendly to running on line in Google Colab notebooks.
+```
+pip install git+https://github.com/samedii/perceptor.git
+```
 
-There is currently [some documentation on options](https://dazhizhong.gitbook.io/pixray-docs/docs). Also checkout [THE DEMO NOTEBOOKS](https://github.com/pixray/pixray_notebooks) or join in the [discussion on discord](https://discord.gg/x2g9TWrNKe).
+### CUDA 11.3 (optional)
 
-## Usage
+The default version of pytorch only supports CUDA 10 so if you for example
+have an RTX card then you need to switch to CUDA 11 manually.
 
-Pixray can be run in Docker using [Cog](https://github.com/replicate/cog).
-
-First, [install Docker and Cog](https://github.com/replicate/cog#install), then you can use `cog run` to run Pixray inside Docker. For example: 
-
-    cog run python pixray.py --drawer=pixel --prompt=sunrise --output myfile.png
+```
+poetry run python -m pip install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio==0.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+```

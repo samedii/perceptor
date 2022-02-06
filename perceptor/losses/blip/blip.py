@@ -2,7 +2,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 from basicsr.utils.download_util import load_file_from_url
 
-from pixray.losses.interface import LossInterface
+from perceptor.losses.interface import LossInterface
 from .blip_itm import blip_itm
 
 

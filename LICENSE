@@ -1,12 +1,12 @@
 for use in commercial products also refer to USE file
 
-pixray is open sourced for free and educational use
+perceptor is open sourced for free and educational use
 but is currently covered by different licenses for different sections
 
 this file will be udpated to reflect the licenses that apply to various dependencies.
 
-MIT: Clip guided core
--------------------------------
+## MIT: Clip guided core
+
 CLIP guided core: MIT License
 Copyright (c) 2021 Katherine Crowson
 

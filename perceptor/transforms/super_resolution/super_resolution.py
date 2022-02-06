@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from basicsr.utils.download_util import load_file_from_url
 
-from pixray.transforms.interface import TransformInterface
+from perceptor.transforms.interface import TransformInterface
 from .real_esrganer import RealESRGANer
 
 

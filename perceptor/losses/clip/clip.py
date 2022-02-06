@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from pixray.losses.interface import LossInterface
+from perceptor.losses.interface import LossInterface
 from .clip_base import get_clip_perceptor
 
 
