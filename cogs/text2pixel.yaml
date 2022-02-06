@@ -1,5 +1,0 @@
-drawer: pixel
-display_every: 10
-output: outputs/text2pixel.png
-scale: 2.5
-quality: better

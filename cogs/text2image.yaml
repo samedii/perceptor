@@ -1,4 +1,0 @@
-drawer: vqgan
-display_every: 10
-output: outputs/text2image.png
-vector_prompts: textoff
