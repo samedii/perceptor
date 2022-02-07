@@ -11,12 +11,6 @@ checkpoints = {
 }
 
 
-def parse_prompt(prompt):
-    vals = prompt.rsplit(":", 2)
-    vals = vals + ["", "1", "-inf"][len(vals) :]
-    return vals[0], float(vals[1]), float(vals[2])
-
-
 class BLIP(LossInterface):
     def __init__(self, text_prompts, name="model_base_retrieval_coco"):
         super().__init__()
@@ -40,8 +34,6 @@ class BLIP(LossInterface):
         )
 
     def forward(self, image):
-        text_prompts = [parse_prompt(prompt) for prompt in self.text_prompts]
-
         if image.shape[-2:] != (self.image_size, self.image_size):
             image = F.interpolate(
                 image,
@@ -60,7 +52,6 @@ class BLIP(LossInterface):
                     ),
                     dim=1,
                 )[:, 1].mean()
-                * weight
-                for text_prompt, weight, _ in text_prompts
+                for text_prompt in self.text_prompts
             ]
-        ) / len(text_prompts)
+        ) / len(self.text_prompts)

@@ -1,7 +1,7 @@
 from torchvision import transforms
 from resmem import ResMem
 
-from perceptor.losses.interface import LossInterface
+from .interface import LossInterface
 
 
 class Memorability(LossInterface):

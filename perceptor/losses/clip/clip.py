@@ -5,12 +5,6 @@ from perceptor.losses.interface import LossInterface
 from .clip_base import get_clip_perceptor
 
 
-def parse_prompt(prompt):
-    vals = prompt.rsplit(":", 2)
-    vals = vals + ["", "1", "-inf"][len(vals) :]
-    return vals[0], float(vals[1]), float(vals[2])
-
-
 class CLIP(LossInterface):
     def __init__(self, text_prompts, name="ViT-B/16"):
         super().__init__()
@@ -20,6 +14,9 @@ class CLIP(LossInterface):
         self.model = get_clip_perceptor(name, torch.device("cuda"))
         self.model.eval()
         self.model.requires_grad_(False)
+
+        if len(text_prompts) >= 2:
+            raise ValueError("CLIP implementation only supports one text prompt")
 
         self.text_encodings = self.model.encode_text(text_prompts[0])
 
