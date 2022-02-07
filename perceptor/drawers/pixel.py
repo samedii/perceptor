@@ -5,21 +5,21 @@ from .interface import DrawingInterface
 
 
 class Pixel(DrawingInterface):
-    def __init__(self, init_image):
+    def __init__(self, init_images):
         super().__init__()
-        self.image = nn.Parameter(init_image)
+        self.images = nn.Parameter(init_images)
 
     def synthesize(self, _=None):
-        return self.image
+        return self.images
 
-    def decode(self, image, mode="bilinear"):
+    def encode(self, images, mode="bilinear"):
         return F.interpolate(
-            image,
-            size=tuple(self.image.shape[-2:]),
+            images,
+            size=tuple(self.images.shape[-2:]),
             mode=mode,
             align_corners=False,
         )
 
-    def replace_(self, image):
-        self.image.data.copy_(image.data)
+    def replace_(self, images):
+        self.images.data.copy_(images.data)
         return self

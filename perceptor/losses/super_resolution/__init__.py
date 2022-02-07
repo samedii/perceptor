@@ -1,0 +1,2 @@
+from .super_resolution import SuperResolution
+from .discriminator import SuperResolutionDiscriminator

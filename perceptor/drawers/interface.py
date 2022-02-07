@@ -8,7 +8,7 @@ class DrawingInterface(nn.Module):
     def synthesize(self, *args, **kwargs):
         raise NotImplementedError
 
-    def decode(self, *args, **kwargs):
+    def encode(self, *args, **kwargs):
         raise NotImplementedError
 
     def replace_(self, *args, **kwargs):
