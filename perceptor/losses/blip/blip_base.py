@@ -192,7 +192,7 @@ class BLIP_Decoder(nn.Module):
                 eos_token_id=self.tokenizer.sep_token_id,
                 pad_token_id=self.tokenizer.pad_token_id,
                 repetition_penalty=1.1,
-                **model_kwargs
+                **model_kwargs,
             )
         else:
             # beam search
@@ -204,7 +204,7 @@ class BLIP_Decoder(nn.Module):
                 eos_token_id=self.tokenizer.sep_token_id,
                 pad_token_id=self.tokenizer.pad_token_id,
                 repetition_penalty=repetition_penalty,
-                **model_kwargs
+                **model_kwargs,
             )
 
         captions = []
@@ -301,5 +301,5 @@ def load_checkpoint(model, url_or_filename):
                 del state_dict[key]
 
     msg = model.load_state_dict(state_dict, strict=False)
-    print("Loaded checkpoint %s" % url_or_filename)
+    print(f"Loaded checkpoint {url_or_filename}")
     return model, msg
