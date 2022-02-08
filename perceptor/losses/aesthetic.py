@@ -8,7 +8,13 @@ from perceptor.losses.clip.clip_base import get_clip_perceptor
 
 
 class Aesthetic(LossInterface):
-    def __init__(self, aesthetic_rating=10):
+    def __init__(self, aesthetic_rating=1.0):
+        """
+        Aesthetic loss based on a classifier that predicts the aesthetic rating of an image.
+
+        Args:
+            aesthetic_rating (float): Target asthetic rating of the image (0-1).
+        """
         super().__init__()
         self.aesthetic_rating = aesthetic_rating
 
@@ -28,4 +34,4 @@ class Aesthetic(LossInterface):
     def forward(self, images):
         image_encodings = self.model.encode_image(images)
         aes_rating = self.aesthetic_head(F.normalize(image_encodings, dim=-1))
-        return (aes_rating - self.aesthetic_rating).square().mean() * 0.02
+        return (aes_rating - self.aesthetic_rating * 10).square().mean() * 0.02

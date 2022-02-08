@@ -33,6 +33,7 @@ class CLIP_Base(torch.nn.Module):
         super().__init__()
         self.device = device
         self.model = model.eval()
+        self.model.requires_grad_(False)
         self.input_resolution = self.model.visual.input_resolution
         self.output_dim = self.model.visual.output_dim
 
