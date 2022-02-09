@@ -9,11 +9,37 @@ from .blip_itm import blip_itm
 
 checkpoints = {
     "model_base_retrieval_coco": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_retrieval_coco.pth",
+    "model_large_retrieval_coco": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_retrieval_coco.pth",
+    "model_base_retrieval_flickr": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_retrieval_flickr.pth",
+    "model_large_retrieval_flickr": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_retrieval_flickr.pth",
+    "model*_base_caption": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model*_base_caption.pth",
+    "model_large_caption": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_caption.pth",
+    "model_vqa": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_vqa.pth",
+    "model*_vqa": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model*_vqa.pth",
+    "model_base_nlvr": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_nlvr.pth",
+    "model_large": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large.pth",
+    "model*_base": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model*_base.pth",
+    "model_base": "https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base.pth",
+}
+
+vit_map = {
+    "model_base_retrieval_coco": "base",
+    "model_large_retrieval_coco": "large",
+    "model_base_retrieval_flickr": "base",
+    "model_large_retrieval_flickr": "large",
+    "model*_base_caption": "base",
+    "model_large_caption": "large",
+    "model_vqa": "base",
+    "model*_vqa": "base",
+    "model_base_nlvr": "base",
+    "model_large": "large",
+    "model*_base": "base",
+    "model_base": "base",
 }
 
 
 class BLIP(LossInterface):
-    def __init__(self, text_prompts, name="model_base_retrieval_coco"):
+    def __init__(self, text_prompts, name="model_base_retrieval_flickr"):
         super().__init__()
         self.name = name
         self.text_prompts = text_prompts
@@ -25,7 +51,9 @@ class BLIP(LossInterface):
 
         self.image_size = 384
         self.model = blip_itm(
-            pretrained=checkpoint_path, image_size=self.image_size, vit="base"
+            pretrained=checkpoint_path,
+            image_size=self.image_size,
+            vit=vit_map[self.name],
         )
         self.model.eval()
         self.model.requires_grad_(False)
