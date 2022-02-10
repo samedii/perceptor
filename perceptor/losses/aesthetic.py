@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from basicsr.utils.download_util import load_file_from_url
 
 from .interface import LossInterface
-from perceptor.losses.clip.clip_base import get_clip_perceptor
+from perceptor import models
 
 
 class Aesthetic(LossInterface):
@@ -18,9 +18,7 @@ class Aesthetic(LossInterface):
         super().__init__()
         self.aesthetic_rating = aesthetic_rating
 
-        self.model = get_clip_perceptor("ViT-B/16", torch.device("cuda"))
-        self.model.eval()
-        self.model.requires_grad_(False)
+        self.model = models.CLIP("ViT-B/16")
 
         checkpoint_path = load_file_from_url(
             "https://dazhi.art/f/ava_vit_b_16_linear.pth", "models"
@@ -32,6 +30,5 @@ class Aesthetic(LossInterface):
         self.aesthetic_head.requires_grad_(False)
 
     def forward(self, images):
-        image_encodings = self.model.encode_image(images)
-        aes_rating = self.aesthetic_head(F.normalize(image_encodings, dim=-1))
+        aes_rating = self.aesthetic_head(self.model.encode_images(images))
         return (aes_rating - self.aesthetic_rating * 10).square().mean() * 0.02
