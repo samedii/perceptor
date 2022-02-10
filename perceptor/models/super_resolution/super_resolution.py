@@ -1,10 +1,9 @@
-from pathlib import Path
 import torch
 import torch.nn.functional as F
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from basicsr.utils.download_util import load_file_from_url
 
-from perceptor.transforms.interface import TransformInterface
+from perceptor import utils
 from .real_esrganer import RealESRGANer
 from .srvgg_net_compact import SRVGGNetCompact
 
@@ -19,8 +18,9 @@ checkpoints = {
 }
 
 
-class SuperResolution(TransformInterface):
-    def __init__(self, *_, name="RealESRGAN_x2plus"):
+@utils.cache
+class SuperResolution(torch.nn.Module):
+    def __init__(self, name="RealESRGAN_x2plus"):
         super().__init__()
         self.name = name
 
@@ -88,6 +88,7 @@ class SuperResolution(TransformInterface):
             )
             self.scale = 4
 
+        self.model.eval()
         self.model.requires_grad_(False)
 
         self.upsampler = RealESRGANer(

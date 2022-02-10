@@ -9,7 +9,7 @@ class Memorability(LossInterface):
         super().__init__()
         self.recenter = transforms.Compose(
             [
-                transforms.Resize((256, 256)),
+                transforms.Resize(256),
                 transforms.CenterCrop(227),
             ]
         )
