@@ -1,14 +1,19 @@
 from functools import wraps
+import weakref
 
 
 def cache(model):
-    cached = dict()
+    cached = weakref.WeakValueDictionary()
 
     @wraps(model)
     def wrapper(*args, **kwargs):
         key = str(args) + str(kwargs)
-        if key not in cached:
-            cached[key] = model(*args, **kwargs)
-        return cached[key]
+
+        if key in cached:
+            return cached[key]
+        else:
+            model_instance = model(*args, **kwargs)
+            cached[key] = model_instance
+            return model_instance
 
     return wrapper
