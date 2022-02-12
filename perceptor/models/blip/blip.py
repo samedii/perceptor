@@ -102,7 +102,7 @@ class BLIP(torch.nn.Module):
 
         return image_embeddings, image_encodings_itc
 
-    def image_text_captioning_spherical_distance(self, encodings_a, encodings_b):
+    def image_text_contrastive_spherical_distance(self, encodings_a, encodings_b):
         return (
             (encodings_a[None, :] - encodings_b[:, None])
             .norm(dim=-1)

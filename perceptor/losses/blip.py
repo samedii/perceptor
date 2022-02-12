@@ -41,7 +41,7 @@ class BLIP(LossInterface):
     def forward(self, images):
         image_embeddings, image_encodings_itc = self.model.encode_images(images)
         return (
-            self.model.image_text_captioning_spherical_distance(
+            self.model.image_text_contrastive_spherical_distance(
                 image_encodings_itc, self.encodings
             ).mean()
             * 0.9
