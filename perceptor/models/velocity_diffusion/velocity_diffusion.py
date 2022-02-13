@@ -1,5 +1,5 @@
 from functools import partial
-from multiprocessing.sharedctypes import Value
+from types import SimpleNamespace
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -89,12 +89,35 @@ class VelocityDiffusion(torch.nn.Module):
 
         predicted_images = None
 
-        def guide_wrapper(x, t, pred, clip_embed=None):
+        @torch.enable_grad()
+        def guided_model_fn(x, t, clip_embed=None):
             nonlocal predicted_images
+
+            x = x.detach().requires_grad_(True)
+            v = self.model(x, t, **extra_args)
+            alphas, sigmas = utils.t_to_alpha_sigma(t)
+            pred = x * alphas[:, None, None, None] - v * sigmas[:, None, None, None]
             predicted_images = (pred + 1) / 2
-            guide(predicted_images)
-            cond_grad = -x.grad
-            return cond_grad * 500
+
+            v = guide(
+                predicted_images,
+                SimpleNamespace(
+                    v=v,
+                    x=x,
+                    t=t,
+                    alphas=alphas,
+                    sigmas=sigmas,
+                ),
+            ).detach()
+            # v = v.detach() - cond_grad * (
+            #     sigmas[:, None, None, None] / alphas[:, None, None, None]
+            # )
+            return v
+            # nonlocal predicted_images
+            # predicted_images = (pred + 1) / 2
+            # guide(predicted_images)
+            # cond_grad = -x.grad
+            # return cond_grad * 500
 
         if hasattr(self.model, "clip_model"):
             extra_args = dict(clip_embed=self.encodings)
@@ -104,7 +127,7 @@ class VelocityDiffusion(torch.nn.Module):
         if guide is None:
             model_fn = self.model
         else:
-            model_fn = sampling.make_cond_model_fn(self.model, guide_wrapper)
+            model_fn = guided_model_fn
 
         if method == "ddpm":
             sampling_fn = partial(sampling.sample, eta=1)
