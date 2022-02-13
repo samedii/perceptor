@@ -54,17 +54,26 @@ class VelocityDiffusion(torch.nn.Module):
         """Adds noise to images."""
         from_alpha, from_sigma = utils.t_to_alpha_sigma(torch.tensor(from_noise))
         to_alpha, to_sigma = utils.t_to_alpha_sigma(torch.tensor(to_noise))
-        add_sigma = (
-            to_sigma.square() - from_sigma.square()
-        ).sqrt()  # does alpha affect this?
+        # add_sigma = (
+        #     to_sigma.square() - from_sigma.square()
+        # ).sqrt()  # does alpha affect this?
+        # return (
+        #     (
+        #         diffused_images.mul(2).sub(1) * to_alpha / from_alpha
+        #         + torch.randn_like(diffused_images) * add_sigma
+        #     )
+        #     .add(1)
+        #     .div(2)
+        # )
         return (
             (
                 diffused_images.mul(2).sub(1) * to_alpha / from_alpha
-                + torch.randn_like(diffused_images) * add_sigma
+                + torch.randn_like(diffused_images) * (1 - to_alpha / from_alpha)
             )
             .add(1)
             .div(2)
         )
+        # linear interpolate to wanted randn instead?
 
     def inverse(
         self,
@@ -120,10 +129,43 @@ class VelocityDiffusion(torch.nn.Module):
         ):
             yield (pred + 1) / 2 if guide is None else predicted_images
 
-    def predict_denoised(self, diffused_images, from_noise):
+    def predict_denoised(self, diffused_images, noise=0):
         """Predict the denoised images."""
-        pass
+        noise = torch.full(diffused_images.shape[:1], noise).to(diffused_images)
 
-    def single_step(self, diffused_images, from_noise, to_noise):
+        if hasattr(self.model, "clip_model"):
+            model_fn = partial(self.model, clip_embed=self.encodings)
+        else:
+            model_fn = self.model
+
+        x = diffused_images * 2 - 1
+        velocity = model_fn(x, noise)
+        alphas, sigmas = utils.t_to_alpha_sigma(noise)
+        pred = x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
+        return (pred + 1) / 2
+
+    def single_step(self, diffused_images, images, from_noise, to_noise):
         """Perform a single step of the vanilla diffusion process."""
-        pass
+        if hasattr(self.model, "clip_model"):
+            model_fn = partial(self.model, clip_embed=self.encodings)
+        else:
+            model_fn = self.model
+
+        from_alphas, from_sigmas = utils.t_to_alpha_sigma(torch.tensor(from_noise))
+        to_alphas, to_sigmas = utils.t_to_alpha_sigma(to_noise)
+
+        from_x = diffused_images * 2 - 1
+        # print(from_x.min(), from_x.max())
+        v = model_fn(
+            from_x,
+            torch.full(diffused_images.shape[:1], from_noise).to(diffused_images),
+        )
+        pred = from_x * from_alphas - v * from_sigmas
+        eps = from_x * from_sigmas + v * from_alphas
+
+        # pred = images * 2 - 1
+        # v = (from_x * from_alphas - pred) / from_sigmas
+        # eps = from_x * from_sigmas + v * from_alphas
+
+        to_x = pred * to_alphas + eps * to_sigmas
+        return (to_x + 1) / 2
