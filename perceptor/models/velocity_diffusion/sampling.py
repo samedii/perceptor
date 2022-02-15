@@ -85,22 +85,6 @@ def reverse_sample(model, x, steps, extra_args, callback=None):
 # PNDM sampling (see https://openreview.net/pdf?id=PlKWVd2yBkY)
 
 
-def make_cond_model_fn(model, cond_fn):
-    def cond_model_fn(x, t, **extra_args):
-        with torch.enable_grad():
-            x = x.detach().requires_grad_()
-            v = model(x, t, **extra_args)
-            alphas, sigmas = utils.t_to_alpha_sigma(t)
-            pred = x * alphas[:, None, None, None] - v * sigmas[:, None, None, None]
-            cond_grad = cond_fn(x, t, pred, **extra_args).detach()
-            v = v.detach() - cond_grad * (
-                sigmas[:, None, None, None] / alphas[:, None, None, None]
-            )
-        return v
-
-    return cond_model_fn
-
-
 def make_eps_model_fn(model):
     def eps_model_fn(x, t, **extra_args):
         alphas, sigmas = utils.t_to_alpha_sigma(t)
