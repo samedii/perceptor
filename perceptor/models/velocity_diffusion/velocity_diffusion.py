@@ -89,35 +89,57 @@ class VelocityDiffusion(torch.nn.Module):
 
         predicted_images = None
 
-        @torch.enable_grad()
         def guided_model_fn(x, t, clip_embed=None):
             nonlocal predicted_images
 
-            x = x.detach().requires_grad_(True)
-            v = self.model(x, t, **extra_args)
             alphas, sigmas = utils.t_to_alpha_sigma(t)
-            pred = x * alphas[:, None, None, None] - v * sigmas[:, None, None, None]
-            predicted_images = (pred + 1) / 2
+            diffused_images = (x + 1) / 2
 
-            v = guide(
-                predicted_images,
-                SimpleNamespace(
-                    v=v,
-                    x=x,
-                    t=t,
-                    alphas=alphas,
-                    sigmas=sigmas,
-                ),
-            ).detach()
-            # v = v.detach() - cond_grad * (
-            #     sigmas[:, None, None, None] / alphas[:, None, None, None]
-            # )
-            return v
-            # nonlocal predicted_images
-            # predicted_images = (pred + 1) / 2
-            # guide(predicted_images)
-            # cond_grad = -x.grad
-            # return cond_grad * 500
+            with torch.enable_grad():
+                diffused_images.requires_grad_(True)
+                grad_x = diffused_images * 2 - 1
+                velocity = self.model(grad_x, t, **extra_args)
+                pred = (
+                    x * alphas[:, None, None, None]
+                    - velocity * sigmas[:, None, None, None]
+                )
+                predicted_images = (pred + 1) / 2
+
+                @torch.no_grad()
+                def guided_velocity_fn(diffused_images_grad):
+                    guided_velocity = (
+                        velocity.detach()
+                        + diffused_images_grad
+                        * (sigmas[:, None, None, None] / alphas[:, None, None, None])
+                        * 500
+                    )
+                    guided_pred = (
+                        x * alphas[:, None, None, None]
+                        - guided_velocity * sigmas[:, None, None, None]
+                    )
+                    guided_images = (guided_pred + 1) / 2
+                    return guided_velocity, guided_images
+
+                @torch.no_grad()
+                def forced_velocity_fn(replaced_predicted):
+                    replaced_pred = replaced_predicted * 2 - 1
+                    x = diffused_images * 2 - 1
+                    forced_velocity = (
+                        x * alphas[:, None, None, None] - replaced_pred
+                    ) / sigmas[:, None, None, None]
+                    return forced_velocity
+
+                guided_diffused_images, guided_velocity = guide(
+                    diffused_images,
+                    predicted_images,
+                    alphas,
+                    guided_velocity_fn,
+                    forced_velocity_fn,
+                )
+            diffused_images.requires_grad_(False)
+            guided_x = guided_diffused_images * 2 - 1
+            x.copy_(guided_x)  # hack to update x in calling function
+            return guided_velocity
 
         if hasattr(self.model, "clip_model"):
             extra_args = dict(clip_embed=self.encodings)
@@ -178,17 +200,12 @@ class VelocityDiffusion(torch.nn.Module):
         to_alphas, to_sigmas = utils.t_to_alpha_sigma(to_noise)
 
         from_x = diffused_images * 2 - 1
-        # print(from_x.min(), from_x.max())
         v = model_fn(
             from_x,
             torch.full(diffused_images.shape[:1], from_noise).to(diffused_images),
         )
         pred = from_x * from_alphas - v * from_sigmas
         eps = from_x * from_sigmas + v * from_alphas
-
-        # pred = images * 2 - 1
-        # v = (from_x * from_alphas - pred) / from_sigmas
-        # eps = from_x * from_sigmas + v * from_alphas
 
         to_x = pred * to_alphas + eps * to_sigmas
         return (to_x + 1) / 2
