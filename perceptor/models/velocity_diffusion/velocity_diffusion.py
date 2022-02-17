@@ -62,7 +62,16 @@ class VelocityDiffusion(torch.nn.Module):
 
     def predict_denoised(self, x, t):
         """Predict the denoised images."""
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full(x.shape[:1], t).to(x)
         velocity = self.forward(x, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         pred = x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
-        return (pred + 1) / 2
+        return pred
+
+    @staticmethod
+    def diffuse(x, t):
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full_like(x, t)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return x * alphas + torch.randn_like(x) * sigmas

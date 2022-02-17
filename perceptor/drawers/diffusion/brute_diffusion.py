@@ -1,8 +1,4 @@
-from functools import partial
-import torch
 from torch import nn
-import torch.nn.functional as F
-from basicsr.utils.download_util import load_file_from_url
 
 from perceptor.drawers.interface import DrawingInterface
 from perceptor import models
