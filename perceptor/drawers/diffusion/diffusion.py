@@ -67,7 +67,11 @@ class Diffusion(DrawingInterface):
 
     def encode(self, images):
         alphas, sigmas = utils.t_to_alpha_sigma(self.t)
-        return images * alphas + torch.randn_like(images).add(1) / 2 * sigmas
+        return (
+            (images.mul(2).sub(1) * alphas + torch.randn_like(images) * sigmas)
+            .add(1)
+            .div(2)
+        )
 
     def replace_(self, diffused_images):
         self.x.data.copy_(diffused_images * 2 - 1)
