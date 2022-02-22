@@ -10,19 +10,44 @@ class CLIP(LossInterface):
         self.name = name
         self.model = models.CLIP(name)
         self.encodings = None
+        self.weights = None
 
-    def add_texts_(self, texts):
-        return self.add_encodings_(self.model.encode_texts(texts))
+    @property
+    def device(self):
+        return next(iter(self.model.parameters())).device
 
-    def add_images_(self, images):
-        return self.add_encodings_(self.model.encode_images(images))
+    def add_texts_(self, texts, weights=None):
+        return self.add_encodings_(self.model.encode_texts(texts), weights)
 
-    def add_encodings_(self, encodings):
+    def add_images_(self, images, weights=None):
+        return self.add_encodings_(self.model.encode_images(images), weights)
+
+    def add_encodings_(
+        self,
+        encodings,
+        weights=None,
+    ):
+        if isinstance(weights, float):
+            weights = torch.tensor([weights])
+        elif weights is None:
+            weights = torch.ones_like(encodings[:, 0])
+
         if self.encodings is None:
-            self.encodings = torch.nn.Parameter(encodings, requires_grad=False)
+            self.encodings = torch.nn.Parameter(
+                encodings.to(self.device), requires_grad=False
+            )
+            self.weights = torch.nn.Parameter(
+                weights.to(self.device),
+                requires_grad=False,
+            )
         else:
             self.encodings = torch.nn.Parameter(
-                torch.cat([self.encodings, encodings]), requires_grad=False
+                torch.cat([self.encodings, encodings.to(self.device)]),
+                requires_grad=False,
+            )
+            self.weights = torch.nn.Parameter(
+                torch.cat([self.weights, weights.to(self.device)]),
+                requires_grad=False,
             )
         return self
 
@@ -36,4 +61,4 @@ class CLIP(LossInterface):
             .square()
             .mul(2)
         )
-        return spherical_distance.mean()
+        return (spherical_distance * self.weights).mean()

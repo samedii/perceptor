@@ -15,26 +15,47 @@ class BLIP(LossInterface):
 
         self.tokenized_texts = None
         self.encodings = None
+        self.weights = None
 
-    def add_texts_(self, texts):
+    @property
+    def device(self):
+        return next(iter(self.model.parameters())).device
+
+    def add_texts_(self, texts, weights=None):
         tokenized_texts, text_encodings_itc = self.model.encode_texts(texts)
         if self.tokenized_texts is None:
             self.tokenized_texts = tokenized_texts
         else:
             raise ValueError("Adding more texts is not supported")
 
-        return self.add_encodings_(text_encodings_itc)
+        return self.add_encodings_(text_encodings_itc, weights)
 
-    def add_images_(self, images):
+    def add_images_(self, images, weights=None):
         _, image_encodings_itc = self.model.encode_images(images)
-        return self.add_encodings_(image_encodings_itc)
+        return self.add_encodings_(image_encodings_itc, weights)
 
-    def add_encodings_(self, encodings):
+    def add_encodings_(self, encodings, weights=None):
+        if isinstance(weights, float):
+            weights = torch.tensor([weights])
+        elif weights is None:
+            weights = torch.ones_like(encodings[:, 0])
+
         if self.encodings is None:
-            self.encodings = torch.nn.Parameter(encodings, requires_grad=False)
+            self.encodings = torch.nn.Parameter(
+                encodings.to(self.device), requires_grad=False
+            )
+            self.weights = torch.nn.Parameter(
+                weights.to(self.device),
+                requires_grad=False,
+            )
         else:
             self.encodings = torch.nn.Parameter(
-                torch.cat([self.encodings, encodings]), requires_grad=False
+                torch.cat([self.encodings, encodings.to(self.device)]),
+                requires_grad=False,
+            )
+            self.weights = torch.nn.Parameter(
+                torch.cat([self.weights, weights.to(self.device)]),
+                requires_grad=False,
             )
         return self
 
@@ -43,10 +64,11 @@ class BLIP(LossInterface):
         return (
             self.model.image_text_contrastive_spherical_distance(
                 image_encodings_itc, self.encodings
-            ).mean()
-            * 0.9
-            + self.model.image_text_retrieval_probabilities(
+            )
+            * self.weights
+        ).mean() * 0.9 + (
+            self.model.image_text_retrieval_probabilities(
                 self.tokenized_texts, image_embeddings
-            ).mean()
-            * 0.1
-        )
+            )
+            * self.weights
+        ).mean() * 0.1
