@@ -5,3 +5,4 @@ from .diffusion import Diffusion
 from .super_resolution import SuperResolution, SuperResolutionDiscriminator
 from .memorability import Memorability
 from .smoothness import Smoothness
+from .style_transfer import StyleTransfer
