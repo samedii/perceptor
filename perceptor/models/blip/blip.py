@@ -50,13 +50,15 @@ class BLIP(torch.nn.Module):
         )
 
         self.image_size = 384
-        self.model = blip_itm(
-            pretrained=checkpoint_path,
-            image_size=self.image_size,
-            vit=vit_map[self.name],
+        self.model = (
+            blip_itm(
+                pretrained=checkpoint_path,
+                image_size=self.image_size,
+                vit=vit_map[self.name],
+            )
+            .requires_grad_(False)
+            .eval()
         )
-        self.model.eval()
-        self.model.requires_grad_(False)
 
         self.normalize = transforms.Normalize(
             (0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)
