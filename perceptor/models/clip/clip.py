@@ -10,14 +10,10 @@ class CLIP(torch.nn.Module):
     def __init__(self, name):
         super().__init__()
         self.name = name
-
         start_device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
-
-        self.model = get_clip_perceptor(name, start_device)
-        self.model.eval()
-        self.model.requires_grad_(False)
+        self.model = get_clip_perceptor(name, start_device).requires_grad_(False).eval()
 
         # softmax on cpu does not support half precision
         if not torch.cuda.is_available():

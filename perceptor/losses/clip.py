@@ -27,8 +27,8 @@ class CLIP(LossInterface):
         encodings,
         weights=None,
     ):
-        if isinstance(weights, float):
-            weights = torch.tensor([weights])
+        if isinstance(weights, list):
+            weights = torch.tensor(weights)
         elif weights is None:
             weights = torch.ones_like(encodings[:, 0])
 

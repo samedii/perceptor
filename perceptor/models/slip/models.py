@@ -1,11 +1,8 @@
 from collections import OrderedDict
-
 import numpy as np
 import timm
 import torch
 from torch import nn
-
-import losses
 
 
 class LayerNorm(nn.LayerNorm):

@@ -35,8 +35,8 @@ class BLIP(LossInterface):
         return self.add_encodings_(image_encodings_itc, weights)
 
     def add_encodings_(self, encodings, weights=None):
-        if isinstance(weights, float):
-            weights = torch.tensor([weights])
+        if isinstance(weights, list):
+            weights = torch.tensor(weights)
         elif weights is None:
             weights = torch.ones_like(encodings[:, 0])
 

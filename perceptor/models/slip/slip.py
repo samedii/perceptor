@@ -10,10 +10,7 @@ class SLIP(torch.nn.Module):
     def __init__(self, name):
         super().__init__()
         self.name = name
-
-        self.model = get_slip_perceptor(name)
-        self.model.eval()
-        self.model.requires_grad_(False)
+        self.model = get_slip_perceptor(name).requires_grad_(False).eval()
 
     @property
     def device(self):
