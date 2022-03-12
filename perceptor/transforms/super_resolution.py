@@ -6,16 +6,13 @@ from perceptor import models
 
 
 class SuperResolution(TransformInterface):
-    def __init__(self, name="RealESRGAN_x2plus"):
+    def __init__(self, name="x4", half=False):
         super().__init__()
         self.name = name
-        self.model = models.SuperResolution(name)
+        self.model = models.SuperResolution(name, half)
 
     def encode(self, images):
-        return self.model.upsampler.enhance(
-            images,
-            outscale=self.model.scale,
-        )
+        return self.model.upsample(images)
 
     def decode(self, upsampled_images, size=None):
         if size is None:

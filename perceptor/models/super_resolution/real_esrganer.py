@@ -3,7 +3,7 @@ import torch
 from torch.nn import functional as F
 
 
-class RealESRGANer:
+class RealESRGANer(torch.nn.Module):
     """A helper class for upsampling images with RealESRGAN.
     Args:
         scale (int): Upsampling scale factor used in the networks. It is usually 2 or 4.
@@ -18,9 +18,11 @@ class RealESRGANer:
     """
 
     def __init__(
-        self, scale, model_path, model=None, tile=0, tile_pad=10, pre_pad=10, half=False
+        self, scale, model_path, model, tile=0, tile_pad=10, pre_pad=10, half=False
     ):
+        super().__init__()
         self.scale = scale
+        self.model = model
         self.tile_size = tile
         self.tile_pad = tile_pad
         self.pre_pad = pre_pad
@@ -34,11 +36,13 @@ class RealESRGANer:
         loadnet = torch.load(model_path, map_location=torch.device("cpu"))
         # prefer to use params_ema
         if "params_ema" in loadnet:
-            keyname = "params_ema"
+            self.model.load_state_dict(loadnet["params_ema"], strict=True)
+        elif "params" in loadnet:
+            self.model.load_state_dict(loadnet["params"], strict=True)
         else:
-            keyname = "params"
-        model.load_state_dict(loadnet[keyname], strict=True)
-        model.eval()
+            self.model.load_state_dict(loadnet, strict=True)
+
+        self.model.eval()
         self.model = model.to(self.device)
         if self.half:
             self.model = self.model.half()

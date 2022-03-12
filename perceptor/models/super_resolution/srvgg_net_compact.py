@@ -24,7 +24,7 @@ class SRVGGNetCompact(nn.Module):
         upscale=4,
         act_type="prelu",
     ):
-        super(SRVGGNetCompact, self).__init__()
+        super().__init__()
         self.num_in_ch = num_in_ch
         self.num_out_ch = num_out_ch
         self.num_feat = num_feat
