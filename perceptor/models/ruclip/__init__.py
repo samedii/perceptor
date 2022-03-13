@@ -1,0 +1,1 @@
+from .ruclip import RuCLIP
