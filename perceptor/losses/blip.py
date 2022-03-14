@@ -65,10 +65,10 @@ class BLIP(LossInterface):
             self.model.image_text_contrastive_spherical_distance(
                 image_encodings_itc, self.encodings
             )
-            * self.weights
+            * self.weights[:, None]
         ).mean() * 0.9 + (
             self.model.image_text_retrieval_probabilities(
                 self.tokenized_texts, image_embeddings
             )
-            * self.weights
+            * self.weights[:, None]
         ).mean() * 0.1
