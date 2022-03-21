@@ -4,12 +4,22 @@ import torchvision
 from torchvision.datasets.utils import download_url
 import einops
 
+from perceptor import transforms
 from .ldm.models.diffusion.ddim import DDIMSampler
 from .ldm.util import instantiate_from_config
 
 
-def noise_lens(image, t, steps=100, noise=None):
-    """Super resolution x4 using latent diffusion. Not differentiable"""
+def noise_lens(image, t, noise=None):
+    """
+    Super resolution x4 using latent diffusion
+
+    Args:
+        image (torch.Tensor): tensor of shape (1, 3, H, W)
+        t (float): timestep (0-1)
+        noise (torch.Tensor): tensor of shape (1, 3, H, W)
+    """
+    steps = 100
+    t = t * steps
     url_conf = "https://heibox.uni-heidelberg.de/f/31a76b13ea27482981b4/?dl=1"
     url_ckpt = "https://heibox.uni-heidelberg.de/f/578df07c8fc04ffbadf3/?dl=1"
 
@@ -111,4 +121,4 @@ def noise_lens(image, t, steps=100, noise=None):
 
     x_sample = model.decode_first_stage(pred_x0)
 
-    return x_sample.clamp(0, 1)
+    return transforms.clamp_with_grad(x_sample, 0, 1)

@@ -232,7 +232,6 @@ class DDIMSampler(object):
 
         return img, intermediates
 
-    @torch.no_grad()
     def p_sample_ddim(
         self,
         x,
