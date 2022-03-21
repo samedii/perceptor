@@ -50,7 +50,7 @@ class RealESRGANer(torch.nn.Module):
     def pre_process(self, img):
         """Pre-process, such as pre-pad and mod pad, so that the images can be divisible"""
         # img is pytorch tensor
-        self.img = img.to(self.device)
+        self.img = img.clone().to(self.device)
         if self.half:
             self.img = self.img.half()
 
