@@ -43,7 +43,7 @@ class Diffusion(DrawingInterface):
         self.x = nn.Parameter(torch.randn(shape), requires_grad=True)
 
     @staticmethod
-    def from_image(image, n_steps=50, from_t=0.9, to_t=0):
+    def from_image(image, n_steps=50, from_t=0.7, to_t=0):
         diffusion = Diffusion(image.shape, n_steps, from_t, to_t)
         diffusion.replace_(diffusion.encode(image))
         return diffusion
@@ -115,12 +115,7 @@ class Diffusion(DrawingInterface):
             * (self.sigmas[:, None, None, None] / self.alphas[:, None, None, None])
             * 500
         )
-        guided_pred = (
-            self.x * self.alphas[:, None, None, None]
-            - guided_velocity * self.sigmas[:, None, None, None]
-        )
-        guided_images = (guided_pred + 1) / 2
-        return guided_velocity, guided_images
+        return guided_velocity
 
     def forced_velocity(self, forced_predicted):
         replaced_pred = forced_predicted * 2 - 1

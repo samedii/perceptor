@@ -1,12 +1,6 @@
 # Python
 __pycache__/
 
-# Libraries and Models
-CLIP/
-taming-transformers/
-taming/
-checkpoints/
-
 # Editor
 .vscode/
 
@@ -15,16 +9,5 @@ outputs/
 inputs/
 steps/
 
-# local place dependencies
-CLIP
-taming-transformers
-
 # Files
 output.png
-steps.mp4
-com.txt
-
-# Cog
-.cog
-
-/models

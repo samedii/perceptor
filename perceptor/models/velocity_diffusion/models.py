@@ -1,4 +1,4 @@
-from . import cc12m_1, yfcc_1, yfcc_2
+from . import cc12m_1, yfcc_1, yfcc_2, wikiart_256
 
 
 models = {
@@ -6,6 +6,7 @@ models = {
     "cc12m_1_cfg": cc12m_1.CC12M1Model,
     "yfcc_1": yfcc_1.YFCC1Model,
     "yfcc_2": yfcc_2.YFCC2Model,
+    "wikiart": wikiart_256.WikiArt256Model,
 }
 
 
