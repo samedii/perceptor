@@ -2,6 +2,8 @@ import torch
 from torchvision import transforms
 from clip import tokenize, load
 
+from perceptor.transforms import resize
+
 
 def normalize(img, input_range=None):
     if input_range is None:
@@ -39,8 +41,8 @@ class CLIP_Base(torch.nn.Module):
 
         self.preprocess_transform = transforms.Compose(
             [
-                transforms.Resize(self.input_resolution),
-                transforms.CenterCrop(self.input_resolution),
+                # transforms.Resize(self.input_resolution),
+                # transforms.CenterCrop(self.input_resolution),
                 transforms.Normalize(
                     (0.48145466, 0.4578275, 0.40821073),
                     (0.26862954, 0.26130258, 0.27577711),
@@ -54,6 +56,11 @@ class CLIP_Base(torch.nn.Module):
 
     def encode_image(self, imgs, input_range=None, apply_preprocess=True):
         if apply_preprocess:
+            imgs = resize(
+                imgs,
+                out_shape=(self.input_resolution, self.input_resolution),
+                resample="bilinear",
+            )
             imgs = self.preprocess(imgs, input_range=None)
         img_embeddings = self.model.encode_image(imgs)
         return img_embeddings / img_embeddings.norm(dim=-1, keepdim=True).float()

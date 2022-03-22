@@ -4,6 +4,7 @@ from torchvision import transforms
 from basicsr.utils.download_util import load_file_from_url
 
 from perceptor import utils
+from perceptor.transforms.resize import resize
 from .blip_itm import blip_itm
 
 
@@ -89,12 +90,13 @@ class BLIP(torch.nn.Module):
 
     def encode_images(self, images):
         if images.shape[-2:] != (self.image_size, self.image_size):
-            images = F.interpolate(
-                images,
-                size=self.image_size,
-                mode="bicubic",
-                align_corners=False,
-            )
+            images = resize(images, out_shape=(self.image_size, self.image_size))
+            # images = F.interpolate(
+            #     images,
+            #     size=self.image_size,
+            #     mode="bicubic",
+            #     align_corners=False,
+            # )
 
         image_embeddings = self.model.visual_encoder(self.normalize(images))
 

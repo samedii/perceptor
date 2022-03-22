@@ -2,34 +2,34 @@ import torch
 import torch.nn.functional as F
 
 from perceptor.losses.interface import LossInterface
-from perceptor.transforms.super_resolution import (
-    SuperResolution as SuperResolutionTransform,
-)
+from perceptor import transforms
 
 
 class SuperResolution(LossInterface):
-    def __init__(self, name="x4", mode="bicubic", align_corners=False):
+    def __init__(self, name="x2", pre_downscale=None, mode="bicubic"):
         super().__init__()
-        self.transform = SuperResolutionTransform(name=name)
-        self.mode = "bicubic"
-        self.align_corners = False
+        self.transform = transforms.SuperResolution(name=name)
+        self.mode = mode
+        self.pre_downscale = (
+            self.transform.model.scale if pre_downscale is None else pre_downscale
+        )
 
     def forward(self, images):
         with torch.no_grad():
-            downsampled_size = torch.tensor(images.shape[-2:]) // 4
-            downsampled = F.interpolate(
-                images,
-                size=downsampled_size.tolist(),
-                mode=self.mode,
-                align_corners=self.align_corners,
-                # antialias=True,  # pytorch 1.11.0
+            downsampled_size = torch.tensor(images.shape[-2:]) // self.pre_downscale
+            scale = downsampled_size / torch.tensor(images.shape[-2:])
+            downsampled = transforms.resize(
+                images, scale.tolist(), downsampled_size, resample=self.mode
             )
             upsampled = self.transform(downsampled)
             if upsampled.shape != images.shape:
-                upsampled = F.interpolate(
-                    upsampled,
-                    size=tuple(images.shape[:2]),
-                    mode=self.mode,
-                    align_corners=self.align_corners,
+                scale = torch.tensor(images.shape[-2:]) / torch.tensor(
+                    upsampled.shape[-2:]
                 )
-        return torch.norm(images - upsampled, p=2, dim=1).mean() * 0.001
+                upsampled = transforms.resize(
+                    upsampled,
+                    scale.tolist(),
+                    out_shape=tuple(images.shape[-2:]),
+                    resample=self.mode,
+                )
+        return (images - upsampled).square().mean()

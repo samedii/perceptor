@@ -6,6 +6,7 @@ import torch.nn as nn
 from basicsr.utils.download_util import load_file_from_url
 from torchvision import transforms
 
+from perceptor.transforms import resize
 from . import models
 from .tokenizer import SimpleTokenizer
 
@@ -60,8 +61,8 @@ class SLIP_Base(torch.nn.Module):
 
         self.preprocess_transform = transforms.Compose(
             [
-                transforms.Resize(224),
-                transforms.CenterCrop(224),
+                # transforms.Resize(224),
+                # transforms.CenterCrop(224),
                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
             ]
         )
@@ -96,6 +97,11 @@ class SLIP_Base(torch.nn.Module):
 
     def encode_image(self, imgs, input_range=None, apply_preprocess=True):
         if apply_preprocess:
+            imgs = resize(
+                imgs,
+                out_shape=(self.input_resolution, self.input_resolution),
+                resample="bilinear",
+            )
             imgs = self.preprocess(imgs, input_range=input_range)
         image_features = self.model.encode_image(imgs)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)

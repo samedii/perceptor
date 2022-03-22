@@ -6,6 +6,19 @@ from perceptor.losses.interface import LossInterface
 
 class SLIP(LossInterface):
     def __init__(self, name="SLIP_VITS16"):
+        """
+        Args:
+            name: name of the slip model. Available models are:
+                - SLIP_VITS16
+                - SLIP_VITB16
+                - SLIP_VITL16
+                - SIMCLR_VITS16
+                - CLIP_VITS16
+                - CLIP_VITB16
+                - CLIP_VITL16
+                - SLIP_CC3M
+                - SLIP_CC12M
+        """
         super().__init__()
         self.name = name
         self.model = models.SLIP(name)
@@ -27,7 +40,7 @@ class SLIP(LossInterface):
         encodings,
         weights=None,
     ):
-        if isinstance(weights, list):
+        if isinstance(weights, list) or isinstance(weights, tuple):
             weights = torch.tensor(weights)
         elif weights is None:
             weights = torch.ones_like(encodings[:, 0])

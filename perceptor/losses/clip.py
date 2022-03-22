@@ -6,6 +6,18 @@ from perceptor.losses.interface import LossInterface
 
 class CLIP(LossInterface):
     def __init__(self, name="ViT-B/16"):
+        """
+        Args:
+            name: name of the clip model. Available models are:
+                - RN50
+                - RN101
+                - RN50x4
+                - RN50x16
+                - RN50x64
+                - ViT-B/32
+                - ViT-B/16
+                - ViT-L/14
+        """
         super().__init__()
         self.name = name
         self.model = models.CLIP(name)
@@ -27,7 +39,7 @@ class CLIP(LossInterface):
         encodings,
         weights=None,
     ):
-        if isinstance(weights, list):
+        if isinstance(weights, list) or isinstance(weights, tuple):
             weights = torch.tensor(weights)
         elif weights is None:
             weights = torch.ones_like(encodings[:, 0])

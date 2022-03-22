@@ -8,6 +8,19 @@ from .clip_base import get_clip_perceptor
 @utils.cache
 class CLIP(torch.nn.Module):
     def __init__(self, name):
+        """
+        Args:
+            name: name of the clip model. Available models are:
+                - RN50
+                - RN101
+                - RN50x4
+                - RN50x16
+                - RN50x64
+                - ViT-B/32
+                - ViT-B/16
+                - ViT-L/14
+        """
+
         super().__init__()
         self.name = name
         start_device = (
