@@ -17,6 +17,7 @@ import perceptor.models.velocity_diffusion.sampling as sampling
 class VelocityDiffusion(torch.nn.Module):
     def __init__(self, name="yfcc_2"):
         super().__init__()
+        self.name = name
         self.model = get_model(name)()
         checkpoint_path = load_file_from_url(model_urls[name], "models")
         self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
@@ -52,6 +53,8 @@ class VelocityDiffusion(torch.nn.Module):
 
     @torch.cuda.amp.autocast()
     def forward(self, x, t):
+        if x.shape[1:] != self.model.shape:
+            raise ValueError(f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}")
         if hasattr(self.model, "clip_model"):
             model_fn = partial(self.model, clip_embed=self.encodings)
         else:

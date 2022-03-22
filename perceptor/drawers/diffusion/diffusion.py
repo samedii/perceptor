@@ -6,10 +6,31 @@ from . import utils
 
 
 class Diffusion(DrawingInterface):
+    """
+    Diffusion sampling drawer.
+
+    Usage:
+
+        diffusion = drawers.Diffusion(
+            shape=(1, 3, 512, 512),
+            n_steps=50,
+        ).to(device)
+
+        yfcc_2_model = models.VelocityDiffusion("yfcc_2").to(device)
+
+        for iteration, x, t in tqdm(diffusion):
+            velocity = yfcc_2_model(x, t)
+            diffusion.step_(velocity)
+            display(
+                utils.pil_image(diffusion.predicted_images(velocity))
+            )
+    """
+
     def __init__(self, shape, n_steps=50, from_t=1, to_t=0):
         super().__init__()
-        n_steps = n_steps - 4 * 3 + 3  # 4 steps inside a prk step
-        t = torch.linspace(from_t, to_t, n_steps + 1)[:-1]
+        self.n_steps = n_steps
+        modified_steps = n_steps - 4 * 3 + 3  # 4 steps inside a prk step
+        t = torch.linspace(from_t, to_t, modified_steps + 1)[:-1]
         self.steps = nn.Parameter(
             torch.cat([utils.get_spliced_ddpm_cosine_schedule(t), torch.zeros([1])])[
                 :, None
@@ -26,6 +47,12 @@ class Diffusion(DrawingInterface):
         diffusion = Diffusion(image.shape, n_steps, from_t, to_t)
         diffusion.replace_(diffusion.encode(image))
         return diffusion
+
+    def __iter__(self):
+        index = 0
+        while len(self.steps) >= 2:
+            yield index, self.x, self.t
+            index += 1
 
     @property
     def t(self):
