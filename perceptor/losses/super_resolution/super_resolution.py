@@ -6,9 +6,9 @@ from perceptor import transforms
 
 
 class SuperResolution(LossInterface):
-    def __init__(self, name="x2", pre_downscale=None, mode="bicubic"):
+    def __init__(self, name="x2", pre_downscale=None, half=True, mode="bicubic"):
         super().__init__()
-        self.transform = transforms.SuperResolution(name=name)
+        self.transform = transforms.SuperResolution(name, half)
         self.mode = mode
         self.pre_downscale = (
             self.transform.model.scale if pre_downscale is None else pre_downscale

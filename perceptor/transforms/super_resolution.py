@@ -3,6 +3,7 @@ import torch.nn.functional as F
 
 from perceptor.transforms.interface import TransformInterface
 from perceptor import models
+from perceptor.transforms.resize import resize
 
 
 class SuperResolution(TransformInterface):
@@ -19,9 +20,7 @@ class SuperResolution(TransformInterface):
             size = (
                 torch.tensor(upsampled_images.shape[-2:]) // self.model.scale
             ).tolist()
-        return F.interpolate(
+        return resize(
             upsampled_images,
-            size=size,
-            mode="bilinear",
-            align_corners=False,
+            out_shape=size,
         )
