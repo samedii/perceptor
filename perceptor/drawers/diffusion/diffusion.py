@@ -108,7 +108,7 @@ class Diffusion(DrawingInterface):
         )
         return (pred + 1) / 2
 
-    def gradient_guided(self, velocity):
+    def guided_velocity(self, velocity):
         guided_velocity = (
             velocity.detach()
             + self.x.grad
