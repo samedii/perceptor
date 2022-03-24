@@ -7,7 +7,7 @@ from .interface import TransformInterface
 
 class ClampWithGradFunction(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input, min, max):
+    def forward(ctx, input, min=0, max=1):
         ctx.min = min
         ctx.max = max
         ctx.save_for_backward(input)
@@ -27,7 +27,7 @@ clamp_with_grad = ClampWithGradFunction.apply
 
 
 class ClampWithGrad(TransformInterface):
-    def __init__(self, min, max):
+    def __init__(self, min=0, max=1):
         super().__init__()
         self.min = min
         self.max = max

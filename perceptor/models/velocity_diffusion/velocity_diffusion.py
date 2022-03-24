@@ -54,7 +54,9 @@ class VelocityDiffusion(torch.nn.Module):
     @torch.cuda.amp.autocast()
     def forward(self, x, t):
         if x.shape[1:] != self.model.shape:
-            raise ValueError(f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}")
+            raise ValueError(
+                f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}"
+            )
         if hasattr(self.model, "clip_model"):
             model_fn = partial(self.model, clip_embed=self.encodings)
         else:
@@ -73,8 +75,10 @@ class VelocityDiffusion(torch.nn.Module):
         return pred
 
     @staticmethod
-    def diffuse(x, t):
+    def diffuse(x, t, noise=None):
         if isinstance(t, float) or t.ndim == 0:
-            t = torch.full_like(x, t)
+            t = torch.full(x.shape[0], t).to(x)
+        if noise is None:
+            noise = torch.randn_like(x)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return x * alphas + torch.randn_like(x) * sigmas
+        return x * alphas + noise * sigmas

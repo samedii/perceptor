@@ -5,9 +5,11 @@ import torch
 from torch import nn
 from basicsr.utils.download_util import load_file_from_url
 
+from perceptor import utils
 from .unet import UNetModel
 
 
+@utils.cache
 class GuidedDiffusion(nn.Module):
     def __init__(self, multiply_t=1000 / 701):
         """

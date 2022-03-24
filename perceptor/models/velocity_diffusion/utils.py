@@ -1,7 +1,4 @@
 import math
-import io
-
-import requests
 import torch
 from torchvision.transforms import functional as TF
 
