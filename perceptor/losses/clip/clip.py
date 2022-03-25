@@ -1,4 +1,6 @@
 import torch
+import json
+from pathlib import Path
 
 from perceptor import models
 from perceptor.losses.interface import LossInterface
@@ -33,6 +35,19 @@ class CLIP(LossInterface):
 
     def add_images_(self, images, weights=None):
         return self.add_encodings_(self.model.encode_images(images), weights)
+
+    def add_text_off_(self, weight=1):
+        textoff_json = json.loads(
+            Path("perceptor/losses/clip/vectors/textoff.json").read_text()
+        )
+        textoff = None
+        if isinstance(weight, float):
+            weight = torch.tensor(weight)
+        if self.name in textoff_json:
+            textoff = torch.tensor(textoff_json[self.name])
+            return self.add_encodings_(textoff, weight)
+        else:
+            raise ValueError(f"There is no textoff for this model: {self.name}")
 
     def add_encodings_(
         self,
