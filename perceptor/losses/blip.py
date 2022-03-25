@@ -13,7 +13,6 @@ class BLIP(LossInterface):
         self.name = name
         self.model = models.BLIP(name)
 
-        self.tokenized_texts = None
         self.encodings = None
         self.weights = None
 
@@ -22,17 +21,12 @@ class BLIP(LossInterface):
         return next(iter(self.model.parameters())).device
 
     def add_texts_(self, texts, weights=None):
-        tokenized_texts, text_encodings_itc = self.model.encode_texts(texts)
-        if self.tokenized_texts is None:
-            self.tokenized_texts = tokenized_texts
-        else:
-            raise ValueError("Adding more texts is not supported")
-
-        return self.add_encodings_(text_encodings_itc, weights)
+        text_encodings = self.model.encode_texts(texts)
+        return self.add_encodings_(text_encodings, weights)
 
     def add_images_(self, images, weights=None):
-        _, image_encodings_itc = self.model.encode_images(images)
-        return self.add_encodings_(image_encodings_itc, weights)
+        image_encodings = self.model.encode_images(images)
+        return self.add_encodings_(image_encodings, weights)
 
     def add_encodings_(self, encodings, weights=None):
         if isinstance(weights, list) or isinstance(weights, tuple):
@@ -60,15 +54,9 @@ class BLIP(LossInterface):
         return self
 
     def forward(self, images):
-        image_embeddings, image_encodings_itc = self.model.encode_images(images)
         return (
             self.model.image_text_contrastive_spherical_distance(
-                image_encodings_itc, self.encodings
+                self.model.encode_images(images), self.encodings
             )
             * self.weights[:, None]
-        ).mean() * 0.9 + (
-            self.model.image_text_retrieval_probabilities(
-                self.tokenized_texts, image_embeddings
-            )
-            * self.weights[:, None]
-        ).mean() * 0.1
+        ).mean()
