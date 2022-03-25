@@ -15,7 +15,7 @@ import perceptor.models.velocity_diffusion.sampling as sampling
 
 @cache
 class VelocityDiffusion(torch.nn.Module):
-    def __init__(self, name="yfcc_2"):
+    def __init__(self, name="yfcc_1"):
         super().__init__()
         self.name = name
         self.model = get_model(name)()

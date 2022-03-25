@@ -1,68 +1,40 @@
-# TODO: there are probably still some issues with the implementation and converting
-# t to the space of the original t
-import math
 import torch
 from torch import nn
 from basicsr.utils.download_util import load_file_from_url
 
 from perceptor import utils
 from .unet import UNetModel
+from .smaller_diffusion_model import SmallerDiffusionModel
 
 
 @utils.cache
 class GuidedDiffusion(nn.Module):
-    def __init__(self, multiply_t=1000 / 701):
+    def __init__(self, name="standard"):
         """
         Args:
-            multiply_t: heuristic multiplier that handles how much noies the model
-                expects. The default value is 1000 / 701 and was selected based on
-                the initially picked value being 701 and the total steps when the
-                model was trained is 1000. It has also been experimentally verified
-                to give decent results.
+            name: The name of the model.
         """
         super().__init__()
-        self.multiply_t = multiply_t
+        self.name = name
         self.shape = (3, 512, 512)
-        model_config = dict(
-            image_size=512,
-            num_channels=256,
-            num_res_blocks=2,
-            num_heads=4,
-            num_heads_upsample=-1,
-            num_head_channels=64,
-            attention_resolutions="32, 16, 8",
-            channel_mult="",
-            dropout=0.0,
-            class_cond=False,
-            use_checkpoint=True,
-            use_scale_shift_norm=True,
-            resblock_updown=True,
-            use_fp16=True,
-            use_new_attention_order=False,
-            learn_sigma=True,
-        )
 
-        self.model = create_model(**model_config)
+        if name == "standard":
+            self.model = create_openimages_model()
+            checkpoint_path = load_file_from_url(
+                "https://set.zlkj.in/models/diffusion/512x512_diffusion_uncond_openimages_epoch28_withfilter.pt",
+                "models",
+            )
+        elif name == "smaller":
+            self.model = SmallerDiffusionModel()
+            checkpoint_path = load_file_from_url(
+                "https://v-diffusion.s3.us-west-2.amazonaws.com/secondary_model_imagenet_2.pth",
+                "models",
+            )
+        else:
+            raise ValueError(f"Unknown model name {self.name}")
 
-        checkpoint_path = load_file_from_url(
-            "https://v-diffusion.s3.us-west-2.amazonaws.com/512x512_diffusion_uncond_finetune_008100.pt",
-            "models",
-        )
         self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
         self.model.requires_grad_(False).eval()
-
-        # from disco diffusion, might not be needed
-        # for name, param in self.model.named_parameters():
-        #     if "qkv" in name or "norm" in name or "proj" in name:
-        #         param.requires_grad_()
-        if model_config["use_fp16"]:
-            self.model.convert_to_fp16()
-
-        original_betas = torch.linspace(0.0001, 0.02, 1000)
-        original_alphas = 1.0 - original_betas
-        self.original_alphas_cumprod = nn.Parameter(
-            torch.cumprod(original_alphas, dim=0), requires_grad=False
-        )
 
     def forward(self, x, t):
         if x.shape[1:] != self.shape:
@@ -70,30 +42,38 @@ class GuidedDiffusion(nn.Module):
                 f"Guided diffusion model only works well with shape {self.shape}"
             )
 
-        alpha, sigma = t_to_alpha_sigma(t)
-        _, closest_indices = (
-            (self.original_alphas_cumprod[None, :] - alpha[:, None])
-            .abs()
-            .topk(2, largest=False)
-        )
-        closest = self.original_alphas_cumprod[closest_indices]
-        original_t = (
-            torch.lerp(
-                closest_indices[:, 0].float(),
-                closest_indices[:, 1].float(),
-                (alpha - closest[:, 0]) / (closest[:, 1] - closest[:, 0]),
-            )
-            * self.multiply_t
-        )
-        eps = self.model(x, 1 + original_t)[:, :3]
-        velocity = (eps - x * sigma[:, None, None, None]) / alpha[:, None, None, None]
-        return velocity
+        if self.name == "standard":
+            return self.model(x, t * 1000)[:, :3]
+        elif self.name == "smaller":
+            return self.model(x, t)
+        else:
+            raise ValueError(f"Unknown model name {self.name}")
 
 
-def t_to_alpha_sigma(t):
-    """Returns the scaling factors for the clean image and for the noise, given
-    a timestep."""
-    return torch.cos(t * math.pi / 2), torch.sin(t * math.pi / 2)
+def create_openimages_model():
+    model_config = dict(
+        image_size=512,
+        num_channels=256,
+        num_res_blocks=2,
+        num_heads=4,
+        num_heads_upsample=-1,
+        num_head_channels=64,
+        attention_resolutions="32, 16, 8",
+        channel_mult="",
+        dropout=0.0,
+        class_cond=False,
+        use_checkpoint=True,
+        use_scale_shift_norm=True,
+        resblock_updown=True,
+        use_fp16=True,
+        use_new_attention_order=False,
+        learn_sigma=True,
+    )
+
+    model = create_model(**model_config)
+    if model_config["use_fp16"]:
+        model.convert_to_fp16()
+    return model
 
 
 def create_model(

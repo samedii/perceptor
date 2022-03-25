@@ -5,14 +5,13 @@ from perceptor.losses.interface import LossInterface
 
 
 class SLIP(LossInterface):
-    def __init__(self, name="SLIP_VITS16"):
+    def __init__(self, name="SLIP_CC12M"):
         """
         Args:
             name: name of the slip model. Available models are:
                 - SLIP_VITS16
                 - SLIP_VITB16
                 - SLIP_VITL16
-                - SIMCLR_VITS16
                 - CLIP_VITS16
                 - CLIP_VITB16
                 - CLIP_VITL16

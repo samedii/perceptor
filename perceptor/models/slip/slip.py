@@ -14,7 +14,6 @@ class SLIP(torch.nn.Module):
                 - SLIP_VITS16
                 - SLIP_VITB16
                 - SLIP_VITL16
-                - SIMCLR_VITS16
                 - CLIP_VITS16
                 - CLIP_VITB16
                 - CLIP_VITL16

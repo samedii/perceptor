@@ -1,8 +1,5 @@
-import sys
-import os
 from collections import OrderedDict
 import torch
-import torch.nn as nn
 from basicsr.utils.download_util import load_file_from_url
 from torchvision import transforms
 
@@ -14,7 +11,6 @@ slip_models_ckpt = {
     "SLIP_VITS16": "slip_small_100ep.pt",
     "SLIP_VITB16": "slip_base_100ep.pt",
     "SLIP_VITL16": "slip_large_100ep.pt",
-    "SIMCLR_VITS16": "simclr_small_25ep.pt",
     "CLIP_VITS16": "clip_small_25ep.pt",
     "CLIP_VITB16": "clip_base_25ep.pt",
     "CLIP_VITL16": "clip_large_25ep.pt",
