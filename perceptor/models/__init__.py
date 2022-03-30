@@ -1,5 +1,6 @@
 from .blip import BLIP
 from .clip import CLIP
+from .cloob import CLOOB
 from .guided_diffusion import GuidedDiffusion
 from .midas_depth import MidasDepth
 from .ruclip import RuCLIP
