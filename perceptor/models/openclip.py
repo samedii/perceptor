@@ -19,8 +19,12 @@ class OpenCLIP(torch.nn.Module):
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
         precision = start_device == torch.device("cuda")
-        self.model = open_clip.create_model(
-            archicture, weights, device=start_device, precision=precision
+        self.model = (
+            open_clip.create_model(
+                archicture, weights, device=start_device, precision=precision
+            )
+            .eval()
+            .requires_grad_(False)
         )
 
         self.normalize = transforms.Normalize(
