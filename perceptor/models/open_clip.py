@@ -42,12 +42,6 @@ class OpenCLIP(torch.nn.Module):
         return next(iter(self.parameters())).device
 
     def encode_texts(self, text_prompts):
-        # return torch.cat(
-        #     [
-        #         F.normalize(self.model.encode_text(text_prompt))
-        #         for text_prompt in text_prompts
-        #     ]
-        # )
         return F.normalize(
             self.model.encode_text(open_clip.tokenize(text_prompts).to(self.device))
         )
