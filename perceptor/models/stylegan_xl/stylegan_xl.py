@@ -45,12 +45,14 @@ class StyleGANXL(nn.Module):
         self.model = dill.load(Path(checkpoint_path).open("rb"))
         self.model.eval().requires_grad_(False)
 
+        # TODO: half precision is supported
+
     @property
     def device(self):
         return next(iter(self.parameters()))
 
     def forward(self, latents):
-        return gen_utils.w_to_img(self.model, latents)
+        return gen_utils.w_to_img(self.model, latents).add(1).div(2)
 
     def latents(self, size, seeds=None, class_indices=None):
         if class_indices is None:

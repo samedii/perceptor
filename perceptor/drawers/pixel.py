@@ -2,6 +2,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from .interface import DrawingInterface
+from perceptor.transforms import resize
 
 
 class Pixel(DrawingInterface):
@@ -13,11 +14,9 @@ class Pixel(DrawingInterface):
         return self.images
 
     def encode(self, images, mode="bilinear"):
-        return F.interpolate(
+        return resize(
             images,
-            size=tuple(self.images.shape[-2:]),
-            mode=mode,
-            align_corners=False,
+            out_shape=tuple(self.images.shape[-2:]),
         )
 
     def replace_(self, images):
