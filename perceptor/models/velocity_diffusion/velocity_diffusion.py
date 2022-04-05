@@ -10,7 +10,6 @@ from perceptor import models
 from .models import get_model
 from .model_urls import model_urls
 import perceptor.models.velocity_diffusion.utils as utils
-import perceptor.models.velocity_diffusion.sampling as sampling
 
 
 @cache
@@ -58,7 +57,7 @@ class VelocityDiffusion(torch.nn.Module):
                 f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}"
             )
         if hasattr(self.model, "clip_model"):
-            model_fn = partial(self.model, clip_embed=self.encodings)
+            model_fn = partial(self.model, clip_embed=self.encodings.mean(dim=0)[None])
         else:
             model_fn = self.model
 
@@ -69,19 +68,34 @@ class VelocityDiffusion(torch.nn.Module):
         return velocity.float()
 
     def predict_denoised(self, x, t):
-        """Predict the denoised images."""
+        """Predict the denoised images `pred` (range -1 to 1)"""
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
         velocity = self.forward(x, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
-        pred = x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
-        return pred
+        return x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
 
     @staticmethod
-    def diffuse(x, t, noise=None):
+    def diffuse(pred, t, noise=None):
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((pred.shape[0],), t).to(pred)
+        if noise is None:
+            noise = torch.randn_like(pred)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return pred * alphas + noise * sigmas
+
+    @staticmethod
+    def x(pred, noise, t):
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((pred.shape[0],), t).to(pred)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
+
+    def noise(self, x, t, pred=None):
+        """Also called eps"""
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
-        if noise is None:
-            noise = torch.randn_like(x)
+        if pred is None:
+            pred = self.predict_denoised(x, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return x * alphas + noise * sigmas
+        return (x - pred * alphas[:, None, None, None]) / sigmas[:, None, None, None]

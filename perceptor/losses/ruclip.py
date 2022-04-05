@@ -27,7 +27,7 @@ class RuCLIP(LossInterface):
         encodings,
         weights=None,
     ):
-        if isinstance(weights, list):
+        if isinstance(weights, list) or isinstance(weights, tuple):
             weights = torch.tensor(weights)
         elif weights is None:
             weights = torch.ones_like(encodings[:, 0])

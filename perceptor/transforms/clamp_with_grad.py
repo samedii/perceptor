@@ -34,3 +34,6 @@ class ClampWithGrad(TransformInterface):
 
     def encode(self, tensor):
         return clamp_with_grad(tensor)
+
+    def decode(self, tensor):
+        return tensor

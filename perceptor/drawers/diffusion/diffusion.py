@@ -26,26 +26,30 @@ class Diffusion(DrawingInterface):
             )
     """
 
-    def __init__(self, shape, n_steps=50, from_t=1, to_t=0):
+    def __init__(self, shape, n_steps=50, from_t=1, to_t=0, method="ddim", eta=None):
         super().__init__()
+        self.method = method
+        self.eta = eta
         self.n_steps = n_steps
-        modified_steps = n_steps - 4 * 3 + 3  # 4 steps inside a prk step
-        t = torch.linspace(from_t, to_t, modified_steps + 1)[:-1]
-        self.steps = nn.Parameter(
-            torch.cat([utils.get_spliced_ddpm_cosine_schedule(t), torch.zeros([1])])[
-                :, None
-            ]
-            * torch.ones([1, shape[0]]),
-            requires_grad=False,
-        )
-        self.plms_eps_queue = nn.Parameter(None, requires_grad=False)
-        self.prk = nn.ParameterDict({})
         self.x = nn.Parameter(torch.randn(shape), requires_grad=True)
+        if self.method == "ddim":
+            self.n_steps = n_steps
+        else:
+            self.n_steps = n_steps - 4 * 3 + 3  # 4 steps inside a prk step
+            self.plms_eps_queue = nn.Parameter(None, requires_grad=False)
+            self.prk = nn.ParameterDict({})
+
+        t = torch.linspace(1, 0, self.n_steps + 1)[:-1]
+        steps = torch.cat([utils.get_spliced_ddpm_cosine_schedule(t), torch.zeros([1])])
+        steps = steps[(steps <= from_t) & (steps >= to_t)]
+        self.steps = nn.Parameter(
+            steps[:, None].repeat(1, shape[0]), requires_grad=False
+        )
 
     @staticmethod
-    def from_image(image, n_steps=50, from_t=0.7, to_t=0):
+    def from_image(image, n_steps=50, from_t=0.7, to_t=0, noise=None):
         diffusion = Diffusion(image.shape, n_steps, from_t, to_t)
-        diffusion.replace_(diffusion.encode(image))
+        diffusion.replace_(diffusion.encode(image, noise))
         return diffusion
 
     def __iter__(self):
@@ -56,17 +60,20 @@ class Diffusion(DrawingInterface):
 
     @property
     def t(self):
-        if len(self.plms_eps_queue) < 3:
-            if "eps_1" not in self.prk:
-                return self.steps[0]
-            elif "eps_2" not in self.prk:
-                return (self.steps[0] + self.steps[1]) / 2
-            elif "eps_3" not in self.prk:
-                return (self.steps[0] + self.steps[1]) / 2
-            else:
-                return self.steps[1]
-        else:
+        if self.method == "ddim":
             return self.steps[0]
+        else:
+            if len(self.plms_eps_queue) < 3:
+                if "eps_1" not in self.prk:
+                    return self.steps[0]
+                elif "eps_2" not in self.prk:
+                    return (self.steps[0] + self.steps[1]) / 2
+                elif "eps_3" not in self.prk:
+                    return (self.steps[0] + self.steps[1]) / 2
+                else:
+                    return self.steps[1]
+            else:
+                return self.steps[0]
 
     @property
     def diffused_images(self):
@@ -88,16 +95,14 @@ class Diffusion(DrawingInterface):
         else:
             return self.predicted_images(velocity)
 
-    def encode(self, images):
-        alphas, sigmas = utils.t_to_alpha_sigma(self.t)
-        return (
-            (images.mul(2).sub(1) * alphas + torch.randn_like(images) * sigmas)
-            .add(1)
-            .div(2)
-        )
+    def encode(self, images, noise=None):
+        alphas, sigmas = utils.t_to_alpha_sigma(self.t.to(images))
+        if noise is None:
+            noise = torch.randn_like(images)
+        return (images.mul(2).sub(1) * alphas + noise * sigmas).add(1).div(2)
 
     def replace_(self, diffused_images):
-        self.x.data.copy_(diffused_images * 2 - 1)
+        self.x.data.copy_(diffused_images.mul(2).sub(1))
         return self
 
     def predicted_images(self, velocity):
@@ -126,18 +131,64 @@ class Diffusion(DrawingInterface):
 
     @torch.no_grad()
     def step_(self, velocity):
-        if len(self.plms_eps_queue) < 3:
-            if "eps_1" not in self.prk:
-                return self.prk_step1_(velocity)
-            elif "eps_2" not in self.prk:
-                return self.prk_step2_(velocity)
-            elif "eps_3" not in self.prk:
-                return self.prk_step3_(velocity)
-            else:
-                assert self.t == self.steps[1]
-                return self.prk_step4_(velocity)
+        if self.method == "ddim":
+            return self.ddim_step_(velocity)
         else:
-            return self.plms_step_(velocity)
+            if len(self.plms_eps_queue) < 3:
+                if "eps_1" not in self.prk:
+                    return self.prk_step1_(velocity)
+                elif "eps_2" not in self.prk:
+                    return self.prk_step2_(velocity)
+                elif "eps_3" not in self.prk:
+                    return self.prk_step3_(velocity)
+                else:
+                    assert self.t == self.steps[1]
+                    return self.prk_step4_(velocity)
+            else:
+                return self.plms_step_(velocity)
+
+    @torch.no_grad()
+    def ddim_step_(self, velocity):
+        t_1 = self.steps[0]
+        t_2 = self.steps[1]
+
+        alphas, sigmas = utils.t_to_alpha_sigma(t_1)
+        next_alphas, next_sigmas = utils.t_to_alpha_sigma(t_2)
+
+        pred = (
+            self.x * alphas[:, None, None, None]
+            - velocity * sigmas[:, None, None, None]
+        )
+        eps = (
+            self.x * sigmas[:, None, None, None]
+            + velocity * alphas[:, None, None, None]
+        )
+
+        if self.eta is not None:
+            # If eta > 0, adjust the scaling factor for the predicted noise
+            # downward according to the amount of additional noise to add
+            ddim_sigma = (
+                self.eta
+                * (next_sigmas**2 / sigmas**2).sqrt()
+                * (1 - alphas**2 / next_alphas**2).sqrt()
+            )
+            adjusted_sigma = (next_sigmas**2 - ddim_sigma**2).sqrt()
+
+            # Recombine the predicted noise and predicted denoised image in the
+            # correct proportions for the next step
+            x_new = pred * next_alphas + eps * adjusted_sigma
+
+            # Add the correct amount of fresh noise
+            x_new += torch.randn_like(x_new) * ddim_sigma
+        else:
+            x_new = (
+                pred * next_alphas[:, None, None, None]
+                + eps * next_sigmas[:, None, None, None]
+            )
+
+        self.x.copy_(x_new)
+        self.steps = nn.Parameter(self.steps[1:], requires_grad=False)
+        return (pred + 1) / 2
 
     @torch.no_grad()
     def plms_step_(self, velocity):
