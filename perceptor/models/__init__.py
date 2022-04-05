@@ -5,6 +5,7 @@ from .guided_diffusion import GuidedDiffusion
 from .midas_depth import MidasDepth
 from .ruclip import RuCLIP
 from .slip import SLIP
+from .stylegan_xl import StyleGANXL
 from .super_resolution import SuperResolution
 from .velocity_diffusion import VelocityDiffusion
 from .open_clip import OpenCLIP

@@ -27,6 +27,8 @@ omegaconf = "^2.1.1"
 youtokentome = "^1.0.6"
 more-itertools = "^8.12.0"
 open-clip = {git = "https://github.com/mlfoundations/open_clip.git", rev = "bc8b3a23ce790bd15b70bfd7cc0773629f2c68f7"}
+dill = "^0.3.4"
+ninja = "^1.10.2"
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^6.8.0"
