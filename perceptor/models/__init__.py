@@ -2,6 +2,7 @@ from .blip import BLIP
 from .clip import CLIP
 from .cloob import CLOOB
 from .guided_diffusion import GuidedDiffusion
+from .latent_diffusion import LatentDiffusion
 from .midas_depth import MidasDepth
 from .ruclip import RuCLIP
 from .slip import SLIP
