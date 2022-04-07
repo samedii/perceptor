@@ -8,9 +8,12 @@ from perceptor.transforms.resize import resize
 from .ldm.util import instantiate_from_config
 from perceptor.utils import cache
 
+# wget -O models/ldm/text2img256/model.zip https://ommer-lab.com/files/latent-diffusion/text2img.zip
+# wget -O models/latent-diffusion-txt2img-f8-large.ckpt https://ommer-lab.com/files/latent-diffusion/nitro/txt2img-f8-large/model.ckpt
+
 
 @cache
-class LatentDiffusion(torch.nn.Module):
+class SuperResolution(torch.nn.Module):
     def __init__(self, eta=1.0, convolutional=False, kernel_size=128, stride=64):
         super().__init__()
         self.eta = eta
@@ -25,11 +28,11 @@ class LatentDiffusion(torch.nn.Module):
             url_ckpt, "models", file_name="sharpen-colab.ckpt"
         )
 
-        sd = torch.load(checkpoint_path, map_location="cpu")["state_dict"]
-
         config = OmegaConf.load(config_path)
         self.model = instantiate_from_config(config.model)
-        self.model.load_state_dict(sd, strict=False)
+        self.model.load_state_dict(
+            torch.load(checkpoint_path, map_location="cpu")["state_dict"], strict=False
+        )
         self.model.requires_grad_(False)
         self.model.cuda()
         self.model.eval()
@@ -56,10 +59,10 @@ class LatentDiffusion(torch.nn.Module):
     def device(self):
         return next(iter(self.parameters())).device
 
-    def forward(self, latents, conditionals, index):
-        return self.velocity(latents, conditionals, index)
+    def forward(self, latents, conditioning, index):
+        return self.velocity(latents, conditioning, index)
 
-    def velocity(self, latents, conditionals, index):
+    def velocity(self, latents, conditioning, index):
         raise NotImplementedError()
 
     def upsample(self, images):
@@ -77,8 +80,7 @@ class LatentDiffusion(torch.nn.Module):
             image=einops.rearrange(images, "1 c h w -> 1 h w c"),
         )
 
-        # why not ema here?
-        latents, conditional = self.model.get_input(
+        latents, conditioning = self.model.get_input(
             example,
             self.model.first_stage_key,
             return_first_stage_outputs=False,
@@ -88,35 +90,37 @@ class LatentDiffusion(torch.nn.Module):
             ),
             return_original_cond=False,
         )
-        return latents, conditional
+        return latents, conditioning
 
-    def diffuse(self, conditional, index, noise=None):
-        """Unclear what the first argument should be. Conditional works and latents also works okay"""
+    def conditioning(self, images):
+        latents, conditioning = self.latents(images)
+        return conditioning
+
+    def diffuse(self, latents, index, noise=None):
         if noise is None:
-            noise = torch.randn_like(conditional)
+            noise = torch.randn_like(latents)
 
-        return self.model.q_sample(x_start=conditional, t=self.ts(index), noise=noise)
+        return self.model.q_sample(x_start=latents, t=self.ts(index), noise=noise)
 
-    def predict_denoised(self, latents, conditional, index):
+    def predict_denoised(self, latents, conditioning, index):
         """Predict denoised latents"""
-        with self.model.ema_scope():
-            eps = self.model.apply_model(latents, self.ts(index), conditional)
+        if index >= 1000:
+            raise ValueError("index must be less than 1000")
+        eps = self.model.apply_model(latents, self.ts(index), conditioning)
 
         return (
             latents - self.sqrt_one_minus_alphas_cumprod(index) * eps
         ) / self.alphas_cumprod(index).sqrt()
 
-    def images(self, pred_x0):
+    def images(self, latents):
         """Decode from latent space to image"""
-        return self.model.decode_first_stage(pred_x0)
+        return self.model.decode_first_stage(latents)
 
     def ts(self, index):
         return torch.tensor([index], device=self.device, dtype=torch.long)
 
     def alphas_cumprod(self, index):
-        return self.model.alphas_cumprod_prev[index].to(self.device)[
-            None, None, None, None
-        ]
+        return self.model.alphas_cumprod[index].to(self.device)[None, None, None, None]
 
     def sqrt_one_minus_alphas_cumprod(self, index):
         return self.model.sqrt_one_minus_alphas_cumprod[index].to(self.device)[
@@ -126,29 +130,35 @@ class LatentDiffusion(torch.nn.Module):
     def step(
         self, from_latents, predicted_denoised_latents, from_index, to_index, noise=None
     ):
+        if to_index > from_index:
+            raise ValueError("to_index must be smaller than from_index")
         if noise is None:
             noise = torch.randn_like(predicted_denoised_latents)
 
+        # if quantize_denoised:
+        #     predicted_denoised_latents, _, *_ = self.model.first_stage_model.quantize(predicted_denoised_latents)
+
         from_alphas_cumprod = self.alphas_cumprod(from_index)
         to_alphas_cumprod = self.alphas_cumprod(to_index)
-        to_sqrt_one_minus_alphas_cumprod = self.sqrt_one_minus_alphas_cumprod(to_index)
+        from_sqrt_one_minus_alphas_cumprod = self.sqrt_one_minus_alphas_cumprod(
+            from_index
+        )
 
         to_sigmas = self.eta * torch.sqrt(
-            (1 - from_alphas_cumprod)
-            / (1 - to_alphas_cumprod)
-            * (1 - to_alphas_cumprod / from_alphas_cumprod)
+            (1 - to_alphas_cumprod)
+            / (1 - from_alphas_cumprod)
+            * (1 - from_alphas_cumprod / to_alphas_cumprod)
         )
 
         eps = (
-            from_latents - predicted_denoised_latents * to_alphas_cumprod.sqrt()
-        ) / to_sqrt_one_minus_alphas_cumprod
+            from_latents - predicted_denoised_latents * from_alphas_cumprod.sqrt()
+        ) / from_sqrt_one_minus_alphas_cumprod
 
-        dir_xt = (1.0 - from_alphas_cumprod - to_sigmas**2).sqrt() * eps
+        dir_xt = (1.0 - to_alphas_cumprod - to_sigmas**2).sqrt() * eps
 
-        scaled_noise = to_sigmas * noise
         to_z = (
-            from_alphas_cumprod.sqrt() * predicted_denoised_latents
+            to_alphas_cumprod.sqrt() * predicted_denoised_latents
             + dir_xt
-            + scaled_noise
+            + to_sigmas * noise
         )
         return to_z

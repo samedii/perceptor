@@ -18,7 +18,6 @@ from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
-from perceptor.transforms.clamp_with_grad import clamp_with_grad
 from perceptor.models.latent_diffusion.ldm.util import (
     log_txt_as_img,
     exists,
@@ -1360,7 +1359,7 @@ class LatentDiffusion(DDPM):
             raise NotImplementedError()
 
         if clip_denoised:
-            x_recon = clamp_with_grad(x_recon, -1.0, 1.0)
+            x_recon.clamp_(-1.0, 1.0)
         if quantize_denoised:
             x_recon, _, [_, _, indices] = self.first_stage_model.quantize(x_recon)
         model_mean, posterior_variance, posterior_log_variance = self.q_posterior(
@@ -1403,6 +1402,7 @@ class LatentDiffusion(DDPM):
         )
         if return_codebook_ids:
             raise DeprecationWarning("Support dropped.")
+            model_mean, _, model_log_variance, logits = outputs
         elif return_x0:
             model_mean, _, model_log_variance, x0 = outputs
         else:
@@ -1414,6 +1414,10 @@ class LatentDiffusion(DDPM):
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
 
+        if return_codebook_ids:
+            return model_mean + nonzero_mask * (
+                0.5 * model_log_variance
+            ).exp() * noise, logits.argmax(dim=1)
         if return_x0:
             return (
                 model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise,
