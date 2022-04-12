@@ -2,12 +2,13 @@ import torch
 from torch import nn
 from basicsr.utils.download_util import load_file_from_url
 
-from perceptor import utils
+from perceptor.utils import cache
+from . import diffusion_space, utils
 from .unet import UNetModel
 from .smaller_diffusion_model import SmallerDiffusionModel
 
 
-@utils.cache
+@cache
 class GuidedDiffusion(nn.Module):
     def __init__(self, name="standard"):
         """
@@ -36,7 +37,11 @@ class GuidedDiffusion(nn.Module):
         self.model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
         self.model.requires_grad_(False).eval()
 
-    def forward(self, x, t):
+    def forward(self, diffused, t):
+        return self.velocity(diffused, t)
+
+    def velocity(self, diffused, t):
+        x = diffusion_space.encode(diffused)
         if x.shape[1:] != self.shape:
             raise ValueError(
                 f"Guided diffusion model only works well with shape {self.shape}"
@@ -48,6 +53,94 @@ class GuidedDiffusion(nn.Module):
             return self.model(x, t)
         else:
             raise ValueError(f"Unknown model name {self.name}")
+
+    def alphas(self, t):
+        if t.ndim == 0:
+            t = t[None]
+        alphas, _ = utils.t_to_alpha_sigma(t)
+        return alphas[:, None, None, None]
+
+    def sigmas(self, t):
+        if t.ndim == 0:
+            t = t[None]
+        _, sigmas = utils.t_to_alpha_sigma(t)
+        return sigmas[:, None, None, None]
+
+    @staticmethod
+    def x(denoised, noise, t):
+        pred = diffusion_space.encode(denoised)
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((pred.shape[0],), t).to(pred)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return diffusion_space.decode(
+            pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
+        )
+
+    def denoise(self, diffused, t):
+        x = diffusion_space.encode(diffused)
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((x.shape[0],), t).to(x)
+        velocity = self.velocity(diffused, t)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return diffusion_space.decode(
+            x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
+        )
+
+    @staticmethod
+    def diffuse(images, t, noise=None):
+        x0 = diffusion_space.encode(images)
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((x0.shape[0],), t).to(x0)
+        if noise is None:
+            noise = torch.randn_like(x0)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return diffusion_space.decode(
+            x0 * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
+        )
+
+    def noise(self, diffused, t, denoised=None):
+        """Also called eps"""
+        x = diffusion_space.encode(diffused)
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((x.shape[0],), t).to(x)
+        if denoised is None:
+            denoised = self.denoise(diffused, t)
+        pred = diffusion_space.encode(denoised)
+        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        return (x - pred * alphas[:, None, None, None]) / sigmas[:, None, None, None]
+
+    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=None):
+        from_x = diffusion_space.encode(from_diffused)
+        pred = diffusion_space.encode(denoised)
+        if noise is None:
+            noise = torch.randn_like(from_x)
+
+        from_alphas, from_sigmas = self.alphas(from_t), self.sigmas(from_t)
+        to_alphas, to_sigmas = self.alphas(to_t), self.sigmas(to_t)
+
+        velocity = (from_x * from_alphas - pred) / from_sigmas
+        eps = from_x * from_sigmas + velocity * from_alphas
+
+        if eta is not None:
+            # If eta > 0, adjust the scaling factor for the predicted noise
+            # downward according to the amount of additional noise to add
+            ddim_sigma = (
+                eta
+                * (to_sigmas**2 / from_sigmas**2).sqrt()
+                * (1 - from_alphas**2 / to_alphas**2).sqrt()
+            )
+            adjusted_sigma = (to_sigmas**2 - ddim_sigma**2).sqrt()
+
+            # Recombine the predicted noise and predicted denoised image in the
+            # correct proportions for the next step
+            to_x = pred * to_alphas + eps * adjusted_sigma
+
+            # Add the correct amount of fresh noise
+            to_x += noise * ddim_sigma
+        else:
+            to_x = pred * to_alphas + eps * to_sigmas
+
+        return diffusion_space.decode(to_x)
 
 
 def create_openimages_model():

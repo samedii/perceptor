@@ -6,8 +6,7 @@ from perceptor.utils import cache
 from perceptor import models
 from .models import get_model
 from .model_urls import model_urls
-import perceptor.models.velocity_diffusion.utils as utils
-from . import diffusion_space
+from . import diffusion_space, utils
 
 
 @cache
@@ -66,8 +65,8 @@ class VelocityDiffusion(torch.nn.Module):
         return self.denoise(images, t)
 
     @torch.cuda.amp.autocast()
-    def velocity(self, images, t):
-        x = diffusion_space.encode(images)
+    def velocity(self, diffused, t):
+        x = diffusion_space.encode(diffused)
         if x.shape[1:] != self.model.shape:
             raise ValueError(
                 f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}"
@@ -93,11 +92,11 @@ class VelocityDiffusion(torch.nn.Module):
             pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def denoise(self, images, t):
-        x = diffusion_space.encode(images)
+    def denoise(self, diffused, t):
+        x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
-        velocity = self.velocity(images, t)
+        velocity = self.velocity(diffused, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return diffusion_space.decode(
             x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
@@ -115,19 +114,19 @@ class VelocityDiffusion(torch.nn.Module):
             x0 * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def noise(self, images, t, denoised=None):
+    def noise(self, diffused, t, denoised=None):
         """Also called eps"""
-        x = diffusion_space.encode(images)
+        x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
         if denoised is None:
-            denoised = self.denoise(images, t)
+            denoised = self.denoise(diffused, t)
         pred = diffusion_space.encode(denoised)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return (x - pred * alphas[:, None, None, None]) / sigmas[:, None, None, None]
 
-    def step(self, from_images, denoised, from_t, to_t, noise=None, eta=None):
-        from_x = diffusion_space.encode(from_images)
+    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=None):
+        from_x = diffusion_space.encode(from_diffused)
         pred = diffusion_space.encode(denoised)
         if noise is None:
             noise = torch.randn_like(from_x)
