@@ -1,4 +1,4 @@
-from .diffusion import BruteDiffusion, Diffusion
+from .diffusion import BruteDiffusion, PseudoLinearSampler
 from .jpeg import JPEG
 from .rudalle import BruteRuDalle
 from .pixel import Pixel

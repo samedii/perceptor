@@ -1,2 +1,2 @@
 from .brute_diffusion import BruteDiffusion
-from .diffusion import Diffusion
+from .pseudo_linear_sampler import PseudoLinearSampler

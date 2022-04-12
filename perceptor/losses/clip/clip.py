@@ -1,6 +1,7 @@
-import torch
-import json
 from pathlib import Path
+import json
+import torch
+import torch.nn.functional as F
 
 from perceptor import models
 from perceptor.losses.interface import LossInterface
@@ -61,7 +62,7 @@ class CLIP(LossInterface):
 
         if self.encodings is None:
             self.encodings = torch.nn.Parameter(
-                encodings.to(self.device), requires_grad=False
+                F.normalize(encodings).to(self.device), requires_grad=False
             )
             self.weights = torch.nn.Parameter(
                 weights.to(self.device),
@@ -69,7 +70,7 @@ class CLIP(LossInterface):
             )
         else:
             self.encodings = torch.nn.Parameter(
-                torch.cat([self.encodings, encodings.to(self.device)]),
+                torch.cat([self.encodings, F.normalize(encodings).to(self.device)]),
                 requires_grad=False,
             )
             self.weights = torch.nn.Parameter(
