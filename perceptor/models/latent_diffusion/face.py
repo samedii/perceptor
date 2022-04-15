@@ -83,7 +83,7 @@ class Face(torch.nn.Module):
             raise ValueError("index must be less than 1000")
 
         if eps is None:
-            eps = self.eps(self, latents, index)
+            eps = self.eps(latents, index)
 
         return (
             latents - self.sqrt_one_minus_alphas_cumprod(index) * eps
