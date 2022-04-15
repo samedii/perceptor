@@ -84,7 +84,6 @@ class DDIMSampler(object):
             "ddim_sigmas_for_original_num_steps", sigmas_for_original_sampling_steps
         )
 
-    @torch.no_grad()
     def sample(
         self,
         S,
@@ -149,7 +148,6 @@ class DDIMSampler(object):
         )
         return samples, intermediates
 
-    @torch.no_grad()
     def ddim_sampling(
         self,
         cond,
@@ -241,7 +239,6 @@ class DDIMSampler(object):
 
         return img, intermediates
 
-    @torch.no_grad()
     def p_sample_ddim(
         self,
         x,

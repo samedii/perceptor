@@ -323,7 +323,6 @@ class DDPM(pl.LightningModule):
         )
         return model_mean, posterior_variance, posterior_log_variance
 
-    @torch.no_grad()
     def p_sample(self, x, t, clip_denoised=True, repeat_noise=False):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(
@@ -356,7 +355,6 @@ class DDPM(pl.LightningModule):
             return img, intermediates
         return img
 
-    @torch.no_grad()
     def sample(self, batch_size=16, return_intermediates=False):
         image_size = self.image_size
         channels = self.channels
@@ -842,7 +840,6 @@ class LatentDiffusion(DDPM):
 
         return fold, unfold, normalization, weighting
 
-    @torch.no_grad()
     def get_input(
         self,
         batch,
@@ -902,7 +899,6 @@ class LatentDiffusion(DDPM):
             out.append(xc)
         return out
 
-    @torch.no_grad()
     def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
         if predict_cids:
             if z.dim() == 4:
@@ -976,83 +972,6 @@ class LatentDiffusion(DDPM):
             else:
                 return self.first_stage_model.decode(z)
 
-    # same as above but without decorator
-    def differentiable_decode_first_stage(
-        self, z, predict_cids=False, force_not_quantize=False
-    ):
-        if predict_cids:
-            if z.dim() == 4:
-                z = torch.argmax(z.exp(), dim=1).long()
-            z = self.first_stage_model.quantize.get_codebook_entry(z, shape=None)
-            z = rearrange(z, "b h w c -> b c h w").contiguous()
-
-        z = 1.0 / self.scale_factor * z
-
-        if hasattr(self, "split_input_params"):
-            if self.split_input_params["patch_distributed_vq"]:
-                ks = self.split_input_params["ks"]  # eg. (128, 128)
-                stride = self.split_input_params["stride"]  # eg. (64, 64)
-                uf = self.split_input_params["vqf"]
-                bs, nc, h, w = z.shape
-                if ks[0] > h or ks[1] > w:
-                    ks = (min(ks[0], h), min(ks[1], w))
-                    print("reducing Kernel")
-
-                if stride[0] > h or stride[1] > w:
-                    stride = (min(stride[0], h), min(stride[1], w))
-                    print("reducing stride")
-
-                fold, unfold, normalization, weighting = self.get_fold_unfold(
-                    z, ks, stride, uf=uf
-                )
-
-                z = unfold(z)  # (bn, nc * prod(**ks), L)
-                # 1. Reshape to img shape
-                z = z.view(
-                    (z.shape[0], -1, ks[0], ks[1], z.shape[-1])
-                )  # (bn, nc, ks[0], ks[1], L )
-
-                # 2. apply model loop over last dim
-                if isinstance(self.first_stage_model, VQModelInterface):
-                    output_list = [
-                        self.first_stage_model.decode(
-                            z[:, :, :, :, i],
-                            force_not_quantize=predict_cids or force_not_quantize,
-                        )
-                        for i in range(z.shape[-1])
-                    ]
-                else:
-
-                    output_list = [
-                        self.first_stage_model.decode(z[:, :, :, :, i])
-                        for i in range(z.shape[-1])
-                    ]
-
-                o = torch.stack(output_list, axis=-1)  # # (bn, nc, ks[0], ks[1], L)
-                o = o * weighting
-                # Reverse 1. reshape to img shape
-                o = o.view((o.shape[0], -1, o.shape[-1]))  # (bn, nc * ks[0] * ks[1], L)
-                # stitch crops together
-                decoded = fold(o)
-                decoded = decoded / normalization  # norm is shape (1, 1, h, w)
-                return decoded
-            else:
-                if isinstance(self.first_stage_model, VQModelInterface):
-                    return self.first_stage_model.decode(
-                        z, force_not_quantize=predict_cids or force_not_quantize
-                    )
-                else:
-                    return self.first_stage_model.decode(z)
-
-        else:
-            if isinstance(self.first_stage_model, VQModelInterface):
-                return self.first_stage_model.decode(
-                    z, force_not_quantize=predict_cids or force_not_quantize
-                )
-            else:
-                return self.first_stage_model.decode(z)
-
-    @torch.no_grad()
     def encode_first_stage(self, x):
         if hasattr(self, "split_input_params"):
             if self.split_input_params["patch_distributed_vq"]:
@@ -1372,7 +1291,6 @@ class LatentDiffusion(DDPM):
         else:
             return model_mean, posterior_variance, posterior_log_variance
 
-    @torch.no_grad()
     def p_sample(
         self,
         x,
@@ -1592,7 +1510,6 @@ class LatentDiffusion(DDPM):
             return img, intermediates
         return img
 
-    @torch.no_grad()
     def sample(
         self,
         cond,
@@ -1835,7 +1752,6 @@ class LatentDiffusion(DDPM):
             return [opt], scheduler
         return opt
 
-    @torch.no_grad()
     def to_rgb(self, x):
         x = x.float()
         if not hasattr(self, "colorize"):

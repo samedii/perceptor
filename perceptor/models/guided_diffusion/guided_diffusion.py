@@ -38,7 +38,7 @@ class GuidedDiffusion(nn.Module):
         self.model.requires_grad_(False).eval()
 
     def forward(self, diffused, t):
-        return self.velocity(diffused, t)
+        return self.denoise(diffused, t)
 
     def velocity(self, diffused, t):
         x = diffusion_space.encode(diffused)
@@ -76,14 +76,20 @@ class GuidedDiffusion(nn.Module):
             pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def denoise(self, diffused, t):
+    def denoise(self, diffused, t, eps=None):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
-        velocity = self.velocity(diffused, t)
+
         alphas, sigmas = utils.t_to_alpha_sigma(t)
+        if eps is None:
+            eps = self.eps(diffused, t)
+
         return diffusion_space.decode(
-            x * alphas[:, None, None, None] - velocity * sigmas[:, None, None, None]
+            x * alphas[:, None, None, None]
+            - (eps - x * sigmas[:, None, None, None])
+            * sigmas[:, None, None, None]
+            / alphas[:, None, None, None]
         )
 
     @staticmethod
@@ -98,16 +104,13 @@ class GuidedDiffusion(nn.Module):
             x0 * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def noise(self, diffused, t, denoised=None):
-        """Also called eps"""
+    def eps(self, diffused, t):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
-        if denoised is None:
-            denoised = self.denoise(diffused, t)
-        pred = diffusion_space.encode(denoised)
+        velocity = self.velocity(diffused, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return (x - pred * alphas[:, None, None, None]) / sigmas[:, None, None, None]
+        return x * sigmas[:, None, None, None] + velocity * alphas[:, None, None, None]
 
     def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=None):
         from_x = diffusion_space.encode(from_diffused)

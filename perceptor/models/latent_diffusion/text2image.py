@@ -4,9 +4,9 @@ import torch
 import torch
 from basicsr.utils.download_util import load_file_from_url
 
-from perceptor.transforms.resize import resize
 from .ldm.util import instantiate_from_config
 from perceptor.utils import cache
+from . import diffusion_space
 
 CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 
@@ -48,7 +48,7 @@ class Text2Image(torch.nn.Module):
         return [4, height // 8, width // 8]
 
     def forward(self, latents, conditioning, index):
-        return self.velocity(latents, conditioning, index)
+        return self.denoise(latents, conditioning, index)
 
     def velocity(self, latents, conditioning, index):
         raise NotImplementedError()
@@ -59,7 +59,9 @@ class Text2Image(torch.nn.Module):
         )
 
     def latents(self, images):
-        encoder_posterior = self.model.encode_first_stage(images.mul(2).sub(1))
+        encoder_posterior = self.model.encode_first_stage(
+            diffusion_space.encode(images)
+        )
         return self.model.get_first_stage_encoding(encoder_posterior)
 
     def conditioning(self, text_prompts):
@@ -73,25 +75,10 @@ class Text2Image(torch.nn.Module):
 
         return self.model.q_sample(x_start=latents, t=self.ts(index), noise=noise)
 
-    def predict_denoised(self, latents, conditioning, index):
+    def denoise(self, latents, index, conditioning=None, eps=None):
         """Predict denoised latents"""
-        if index >= 1000:
-            raise ValueError("index must be less than 1000")
-        if (
-            self.unconditional_conditioning is None
-            or self.unconditional_guidance_scale == 1.0
-        ):
-            eps = self.model.apply_model(latents, self.ts(index), conditioning)
-        else:
-            eps_conditioned, eps_unconditioned = self.model.apply_model(
-                torch.cat([latents] * 2),
-                torch.cat([self.ts(index)] * 2),
-                torch.cat([conditioning, self.unconditional_conditioning]),
-            ).chunk(2)
-
-            eps = eps_unconditioned + self.unconditional_guidance_scale * (
-                eps_conditioned - eps_unconditioned
-            )
+        if eps is None:
+            eps = self.eps(latents, index, conditioning)
 
         return (
             latents - self.sqrt_one_minus_alphas_cumprod(index) * eps
@@ -99,7 +86,7 @@ class Text2Image(torch.nn.Module):
 
     def images(self, latents):
         """Decode from latent space to image"""
-        return self.model.decode_first_stage(latents)
+        return diffusion_space.decode(self.model.decode_first_stage(latents))
 
     def ts(self, index):
         return torch.tensor([index], device=self.device, dtype=torch.long)
@@ -148,5 +135,24 @@ class Text2Image(torch.nn.Module):
         )
         return to_z
 
-    def noise(self, latents, conditioning, index):
-        return self.model.apply_model(latents, self.ts(index), conditioning)
+    def eps(self, latents, index, conditioning):
+        if index >= 1000:
+            raise ValueError("index must be less than 1000")
+
+        if (
+            self.unconditional_conditioning is None
+            or self.unconditional_guidance_scale == 1.0
+        ):
+            eps = self.model.apply_model(latents, self.ts(index), conditioning)
+        else:
+            # save vRAM by splitting this in two?
+            eps_conditioned, eps_unconditioned = self.model.apply_model(
+                torch.cat([latents] * 2),
+                torch.cat([self.ts(index)] * 2),
+                torch.cat([conditioning, self.unconditional_conditioning]),
+            ).chunk(2)
+
+            eps = eps_unconditioned + self.unconditional_guidance_scale * (
+                eps_conditioned - eps_unconditioned
+            )
+        return eps

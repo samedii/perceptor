@@ -1,29 +1,32 @@
+from pathlib import Path
 from omegaconf import OmegaConf
 import torch
-import einops
 import torch
 from basicsr.utils.download_util import load_file_from_url
 
-from perceptor.transforms.resize import resize
 from .ldm.util import instantiate_from_config
 from perceptor.utils import cache
 from . import diffusion_space
 
+CONFIG_DIR = Path(__file__).resolve().parent / "configs"
+
 
 @cache
-class SuperResolution(torch.nn.Module):
-    def __init__(self, eta=1.0, convolutional=False, kernel_size=128, stride=64):
+class Face(torch.nn.Module):
+    def __init__(self, eta=0.0):
         super().__init__()
         self.eta = eta
 
-        url_conf = "https://heibox.uni-heidelberg.de/f/31a76b13ea27482981b4/?dl=1"
-        url_ckpt = "https://heibox.uni-heidelberg.de/f/578df07c8fc04ffbadf3/?dl=1"
-
-        config_path = load_file_from_url(
-            url_conf, "models", file_name="sharpen-colab.yaml"
+        autoencoder_url_ckpt = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/latent-diffusion/celeba.pt"
+        load_file_from_url(
+            autoencoder_url_ckpt, "models", file_name="latent-diffusion-vq-f4.pt"
         )
+
+        url_ckpt = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/latent-diffusion/celeba.pt"
+
+        config_path = CONFIG_DIR / "latent-diffusion" / "celebahq-ldm-vq-4.yaml"
         checkpoint_path = load_file_from_url(
-            url_ckpt, "models", file_name="sharpen-colab.ckpt"
+            url_ckpt, "models", file_name="latent-diffusion-celeba.pt"
         )
 
         config = OmegaConf.load(config_path)
@@ -35,80 +38,52 @@ class SuperResolution(torch.nn.Module):
         self.model.cuda()
         self.model.eval()
 
-        self.up_f = 4
-        if convolutional:
-            vqf = 4
-            self.model.split_input_params = {
-                "ks": (kernel_size, kernel_size),
-                "stride": (stride, stride),
-                "vqf": vqf,
-                "patch_distributed_vq": True,
-                "tie_braker": False,
-                "clip_max_weight": 0.5,
-                "clip_min_weight": 0.01,
-                "clip_max_tie_weight": 0.5,
-                "clip_min_tie_weight": 0.01,
-            }
-        else:
-            if hasattr(self.model, "split_input_params"):
-                delattr(self.model, "split_input_params")
-
     @property
     def device(self):
         return next(iter(self.parameters())).device
 
-    def forward(self, latents, conditioning, index):
-        return self.denoise(latents, conditioning, index)
+    @staticmethod
+    def latent_shape(height, width):
+        return [4, height // 8, width // 8]
 
-    def velocity(self, latents, conditioning, index):
+    def forward(self, latents, index):
+        return self.velocity(latents, index)
+
+    def velocity(self, latents, index):
         raise NotImplementedError()
 
-    def upsample(self, images):
-        return resize(images, out_shape=[s * self.up_f for s in images.shape[-2:]])
+    def random_latents(self, images_shape):
+        return torch.randn(
+            images_shape[0], *self.latent_shape(*images_shape[-2:]), device=self.device
+        )
 
     def latents(self, images):
-        """Encode images (0-1) to latent space"""
-        example = dict(
-            LR_image=diffusion_space.encode(
-                einops.rearrange(
-                    resize(
-                        images, out_shape=[s // self.up_f for s in images.shape[-2:]]
-                    ),
-                    "1 c h w -> 1 h w c",
-                )
-            ),
-            image=einops.rearrange(images, "1 c h w -> 1 h w c"),
+        if images.shape[-2:] != (256, 256):
+            raise ValueError(
+                "Face model not behave well when resolution is not 256x256"
+            )
+        encoder_posterior = self.model.encode_first_stage(
+            diffusion_space.encode(images)
         )
-
-        latents, conditioning = self.model.get_input(
-            example,
-            self.model.first_stage_key,
-            return_first_stage_outputs=False,
-            force_c_encode=not (
-                hasattr(self.model, "split_input_params")
-                and self.model.cond_stage_key == "coordinates_bbox"
-            ),
-            return_original_cond=False,
-        )
-        return latents
-
-    def conditioning(self, images):
-        latents, conditioning = self.latents(images)
-        return conditioning
+        return self.model.get_first_stage_encoding(encoder_posterior)
 
     def diffuse(self, latents, index, noise=None):
+        """Unclear what the first argument should be. Conditioning works and latents also works okay"""
         if noise is None:
             noise = torch.randn_like(latents)
+        else:
+            if latents.shape != noise.shape:
+                raise ValueError("Noise shape must be the same as latent shape")
 
         return self.model.q_sample(x_start=latents, t=self.ts(index), noise=noise)
 
-    def denoise(self, latents, conditioning, index, eps=None):
+    def denoise(self, latents, index, eps=None):
         """Predict denoised latents"""
         if index >= 1000:
             raise ValueError("index must be less than 1000")
 
         if eps is None:
-            eps = self.eps(latents, index, conditioning)
+            eps = self.eps(self, latents, index)
 
         return (
             latents - self.sqrt_one_minus_alphas_cumprod(index) * eps
@@ -136,6 +111,9 @@ class SuperResolution(torch.nn.Module):
             raise ValueError("to_index must be smaller than from_index")
         if noise is None:
             noise = torch.randn_like(predicted_denoised_latents)
+        else:
+            if from_latents.shape != noise.shape:
+                raise ValueError("Noise shape must be the same as latent shape")
 
         # if quantize_denoised:
         #     predicted_denoised_latents, _, *_ = self.model.first_stage_model.quantize(predicted_denoised_latents)
@@ -165,8 +143,5 @@ class SuperResolution(torch.nn.Module):
         )
         return to_z
 
-    def eps(self, latents, index, conditioning):
-        if index >= 1000:
-            raise ValueError("index must be less than 1000")
-
-        return self.model.apply_model(latents, self.ts(index), conditioning)
+    def eps(self, latents, index):
+        return self.model.apply_model(latents, self.ts(index), cond=None)
