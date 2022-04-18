@@ -13,9 +13,10 @@ CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 
 @cache
 class Text2Image(torch.nn.Module):
-    def __init__(self, unconditional_guidance_scale=5, eta=0.0):
+    def __init__(self, guidance_scale=5, eta=0.0):
         super().__init__()
         self.eta = eta
+        self.guidance_scale = guidance_scale
 
         url_ckpt = "https://ommer-lab.com/files/latent-diffusion/nitro/txt2img-f8-large/model.ckpt"
 
@@ -32,12 +33,6 @@ class Text2Image(torch.nn.Module):
         self.model.requires_grad_(False)
         self.model.cuda()
         self.model.eval()
-
-        self.unconditional_guidance_scale = unconditional_guidance_scale
-        if self.unconditional_guidance_scale != 1.0:
-            self.unconditional_conditioning = self.model.get_learned_conditioning([""])
-        else:
-            self.unconditional_conditioning = None
 
     @property
     def device(self):
@@ -64,9 +59,15 @@ class Text2Image(torch.nn.Module):
         )
         return self.model.get_first_stage_encoding(encoder_posterior)
 
-    def conditioning(self, text_prompts):
+    def conditioning(self, text_prompts, negative_text_prompts=[""]):
         """Encode images (0-1) to latent space"""
-        return self.model.get_learned_conditioning(text_prompts)
+        return torch.cat(
+            [
+                self.model.get_learned_conditioning(text_prompts),
+                self.model.get_learned_conditioning(negative_text_prompts),
+            ],
+            dim=0,
+        )
 
     def diffuse(self, latents, index, noise=None):
         """Unclear what the first argument should be. Conditioning works and latents also works okay"""
@@ -139,20 +140,15 @@ class Text2Image(torch.nn.Module):
         if index >= 1000:
             raise ValueError("index must be less than 1000")
 
-        if (
-            self.unconditional_conditioning is None
-            or self.unconditional_guidance_scale == 1.0
-        ):
+        if self.guidance_scale is None or self.guidance_scale == 1.0:
             eps = self.model.apply_model(latents, self.ts(index), conditioning)
         else:
             # save vRAM by splitting this in two?
-            eps_conditioned, eps_unconditioned = self.model.apply_model(
+            eps_conditioned, eps_negative = self.model.apply_model(
                 torch.cat([latents] * 2),
                 torch.cat([self.ts(index)] * 2),
-                torch.cat([conditioning, self.unconditional_conditioning]),
+                conditioning,
             ).chunk(2)
 
-            eps = eps_unconditioned + self.unconditional_guidance_scale * (
-                eps_conditioned - eps_unconditioned
-            )
+            eps = eps_negative + self.guidance_scale * (eps_conditioned - eps_negative)
         return eps

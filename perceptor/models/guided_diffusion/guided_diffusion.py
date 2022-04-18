@@ -47,6 +47,9 @@ class GuidedDiffusion(nn.Module):
                 f"Guided diffusion model only works well with shape {self.shape}"
             )
 
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((x.shape[0],), t).to(x)
+
         if self.name == "standard":
             return self.model(x, t * 1000)[:, :3]
         elif self.name == "smaller":

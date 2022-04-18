@@ -12,6 +12,14 @@ from . import diffusion_space, utils
 @cache
 class VelocityDiffusion(torch.nn.Module):
     def __init__(self, name="yfcc_2"):
+        """
+        Args:
+            name: The name of the model.. Available models are:
+                - yfcc_2
+                - yfcc_1
+                - cc12m_1_cfg (conditioned)
+                - wikiart
+        """
         super().__init__()
         self.name = name
         self.model = get_model(name)()
