@@ -4,6 +4,7 @@ Various utilities for neural networks.
 
 import math
 
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
@@ -165,32 +166,55 @@ def checkpoint(func, inputs, params, flag):
         return func(*inputs)
 
 
-class CheckpointFunction(th.autograd.Function):
+class CheckpointFunction(torch.autograd.Function):
     @staticmethod
+    @torch.cuda.amp.custom_fwd
     def forward(ctx, run_function, length, *args):
         ctx.run_function = run_function
-        ctx.input_tensors = list(args[:length])
-        ctx.input_params = list(args[length:])
-        with th.no_grad():
-            output_tensors = ctx.run_function(*ctx.input_tensors)
+        ctx.input_length = length
+        ctx.save_for_backward(*args)
+        with torch.no_grad():
+            output_tensors = ctx.run_function(*args[:length])
         return output_tensors
 
     @staticmethod
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, *output_grads):
-        ctx.input_tensors = [x.detach().requires_grad_(True) for x in ctx.input_tensors]
-        with th.enable_grad():
-            # Fixes a bug where the first op in run_function modifies the
-            # Tensor storage in place, which is not allowed for detach()'d
-            # Tensors.
-            shallow_copies = [x.view_as(x) for x in ctx.input_tensors]
-            output_tensors = ctx.run_function(*shallow_copies)
-        input_grads = th.autograd.grad(
-            output_tensors,
-            ctx.input_tensors + ctx.input_params,
-            output_grads,
-            allow_unused=True,
+        args = list(ctx.saved_tensors)
+
+        # Filter for inputs that require grad. If none, exit early.
+        input_indices = [i for (i, x) in enumerate(args) if x.requires_grad]
+        if not input_indices:
+            return (None, None) + tuple(None for _ in args)
+
+        with torch.enable_grad():
+            for i in input_indices:
+                if i < ctx.input_length:
+                    # Not sure why the OAI code does this little
+                    # dance. It might not be necessary.
+                    args[i] = args[i].detach().requires_grad_()
+                    args[i] = args[i].view_as(args[i])
+            output_tensors = ctx.run_function(*args[: ctx.input_length])
+
+        if isinstance(output_tensors, torch.Tensor):
+            output_tensors = [output_tensors]
+
+        # Filter for outputs that require grad. If none, exit early.
+        out_and_grads = [
+            (o, g) for (o, g) in zip(output_tensors, output_grads) if o.requires_grad
+        ]
+        if not out_and_grads:
+            return (None, None) + tuple(None for _ in args)
+
+        # Compute gradients on the filtered tensors.
+        computed_grads = torch.autograd.grad(
+            [o for (o, g) in out_and_grads],
+            [args[i] for i in input_indices],
+            [g for (o, g) in out_and_grads],
         )
-        del ctx.input_tensors
-        del ctx.input_params
-        del output_tensors
-        return (None, None) + input_grads
+
+        # Reassemble the complete gradient tuple.
+        input_grads = [None for _ in args]
+        for (i, g) in zip(input_indices, computed_grads):
+            input_grads[i] = g
+        return (None, None) + tuple(input_grads)

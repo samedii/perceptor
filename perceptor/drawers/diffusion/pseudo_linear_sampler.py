@@ -44,7 +44,6 @@ class PseudoLinearSampler(DrawingInterface):
     def __len__(self):
         return len(self.steps) - 1
 
-    @torch.no_grad()
     def eps_(self, eps):
         self.called_eps += 1
         if len(self.plms_eps_queue) < 3:
@@ -52,7 +51,6 @@ class PseudoLinearSampler(DrawingInterface):
         else:
             return self.plms_eps_(eps)
 
-    @torch.no_grad()
     def plms_eps_(self, eps):
         eps_prime = (
             55 * eps
@@ -61,13 +59,13 @@ class PseudoLinearSampler(DrawingInterface):
             - 9 * self.plms_eps_queue[-3]
         ) / 24
         self.plms_eps_queue = nn.Parameter(
-            torch.cat([self.plms_eps_queue[1:], eps[None]]), requires_grad=False
+            torch.cat([self.plms_eps_queue[1:], eps.detach()[None]]),
+            requires_grad=False,
         )
         return eps_prime
 
-    @torch.no_grad()
     def ddim_eps_(self, eps):
         self.plms_eps_queue = nn.Parameter(
-            torch.cat([self.plms_eps_queue, eps[None]]), requires_grad=False
+            torch.cat([self.plms_eps_queue, eps.detach()[None]]), requires_grad=False
         )
         return eps

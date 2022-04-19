@@ -28,31 +28,11 @@ class VelocityDiffusion(torch.nn.Module):
         print(f"Loaded checkpoint {checkpoint_path}")
         self.model.eval()
         self.model.requires_grad_(False)
-        self.encodings = None
 
     def to(self, device):
         super().to(device)
         if device == torch.device("cuda"):
             self.model.half()
-        return self
-
-    def add_texts_(self, texts):
-        return self.add_encodings_(
-            models.CLIP(self.model.clip_model).encode_texts(texts)
-        )
-
-    def add_images_(self, images):
-        return self.add_encodings_(
-            models.CLIP(self.model.clip_model).encode_images(images)
-        )
-
-    def add_encodings_(self, encodings):
-        if self.encodings is None:
-            self.encodings = torch.nn.Parameter(encodings, requires_grad=False)
-        else:
-            self.encodings = torch.nn.Parameter(
-                torch.cat([self.encodings, encodings]), requires_grad=False
-            )
         return self
 
     def alphas(self, t):
@@ -67,20 +47,34 @@ class VelocityDiffusion(torch.nn.Module):
         _, sigmas = utils.t_to_alpha_sigma(t)
         return sigmas[:, None, None, None]
 
-    def forward(self, images, t):
+    def forward(self, images, t, conditioning=None):
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((images.shape[0],), t).to(images)
-        return self.denoise(images, t)
+        return self.denoise(images, t, conditioning=None)
+
+    def conditioning(self, texts=None, images=None, encodings=None):
+        clip_model = models.CLIP(self.model.clip_model)
+
+        all_encodings = list()
+        if texts is not None:
+            all_encodings.append(clip_model.encode_texts(texts))
+        if images is not None:
+            all_encodings.append(clip_model.encode_images(images))
+        if encodings is not None:
+            all_encodings.append(encodings)
+        if len(all_encodings) == 0:
+            raise ValueError("Must provide at least one of texts, images, or encodings")
+        return torch.stack(all_encodings, dim=0).mean(dim=0)[None]
 
     @torch.cuda.amp.autocast()
-    def velocity(self, diffused, t):
+    def velocity(self, diffused, t, conditioning=None):
         x = diffusion_space.encode(diffused)
         if x.shape[1:] != self.model.shape:
             raise ValueError(
                 f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}"
             )
         if hasattr(self.model, "clip_model"):
-            model_fn = partial(self.model, clip_embed=self.encodings.mean(dim=0)[None])
+            model_fn = partial(self.model, clip_embed=conditioning.squeeze(dim=1))
         else:
             model_fn = self.model
 
@@ -100,14 +94,14 @@ class VelocityDiffusion(torch.nn.Module):
             pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def denoise(self, diffused, t, eps=None):
+    def denoise(self, diffused, t, conditioning=None, eps=None):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
 
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         if eps is None:
-            eps = self.eps(diffused, t)
+            eps = self.eps(diffused, t, conditioning)
 
         return diffusion_space.decode(
             x * alphas[:, None, None, None]
@@ -128,11 +122,11 @@ class VelocityDiffusion(torch.nn.Module):
             x0 * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
         )
 
-    def eps(self, diffused, t):
+    def eps(self, diffused, t, conditioning=None):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
-        velocity = self.velocity(diffused, t)
+        velocity = self.velocity(diffused, t, conditioning)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return x * sigmas[:, None, None, None] + velocity * alphas[:, None, None, None]
 
