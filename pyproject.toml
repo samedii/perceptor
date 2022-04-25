@@ -14,7 +14,6 @@ einops = "^0.4.0"
 imageio = "^2.14.1"
 kornia = "^0.6.3"
 Pillow = "^9.0.1"
-clip = {git = "https://github.com/openai/CLIP.git", rev = "40f5484c1c74edd83cb9cf687c6ab92b28d8b656"}
 timm = "^0.5.4"
 perlin-numpy = {git = "https://github.com/pvigier/perlin-numpy", rev = "6f077f811f5708e504732c26dee8f2015b95da0c"}
 resmem = "^1.1.4"
@@ -29,6 +28,8 @@ more-itertools = "^8.12.0"
 open-clip = {git = "https://github.com/mlfoundations/open_clip.git", rev = "bc8b3a23ce790bd15b70bfd7cc0773629f2c68f7"}
 dill = "^0.3.4"
 ninja = "^1.10.2"
+clip = {git = "git@github.com:openai/CLIP.git", rev = "b4ae44927b78d0093b556e3ce43cbdcff422017a"}
+lpips = "^0.1.4"
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^6.8.0"

@@ -60,7 +60,6 @@ class Text2Image(torch.nn.Module):
         return self.model.get_first_stage_encoding(encoder_posterior)
 
     def conditioning(self, text_prompts, negative_text_prompts=[""]):
-        """Encode images (0-1) to latent space"""
         return torch.cat(
             [
                 self.model.get_learned_conditioning(text_prompts),

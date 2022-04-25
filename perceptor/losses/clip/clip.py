@@ -20,6 +20,7 @@ class CLIP(LossInterface):
                 - ViT-B/32
                 - ViT-B/16
                 - ViT-L/14
+                - ViT-L/14@336px
         """
         super().__init__()
         self.name = name
@@ -37,13 +38,10 @@ class CLIP(LossInterface):
     def add_images_(self, images, weights=None):
         return self.add_encodings_(self.model.encode_images(images), weights)
 
-    def add_text_off_(self, weight=1):
+    def add_text_off_(self, weight=None):
         textoff_json = json.loads(
             Path("perceptor/losses/clip/vectors/textoff.json").read_text()
         )
-        textoff = None
-        if isinstance(weight, float):
-            weight = torch.tensor(weight)
         if self.name in textoff_json:
             textoff = torch.tensor(textoff_json[self.name])
             return self.add_encodings_(textoff, weight)

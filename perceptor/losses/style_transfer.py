@@ -3,34 +3,38 @@ from torch import nn
 import torch.nn.functional as F
 import torchvision
 
+from perceptor.transforms.resize import resize
 from .interface import LossInterface
 
 
 class StyleTransfer(LossInterface):
-    def __init__(self, style_image):
+    def __init__(self, style_images=None):
+        """Original style transfer loss"""
         super().__init__()
         self.model = torchvision.models.vgg19(pretrained=True).features
         self.model.eval()
         self.model.requires_grad_(False)
-        self.vgg_Y = nn.ParameterList(
-            [
-                nn.Parameter(tensor, requires_grad=False)
-                for tensor in get_vgg_activations(
-                    self.model,
-                    [F.interpolate(style_image, size=(256, 256), mode="bilinear")],
-                )
-            ]
-        )
 
-    def forward(self, images):
+        if style_images is not None:
+            self.encodings = nn.ParameterList(
+                [
+                    nn.Parameter(tensor, requires_grad=False)
+                    for tensor in self.encode(style_images)
+                ]
+            )
+
+    def encode(self, images):
         if images.shape[-2:] != (256, 256):
-            images = F.interpolate(images, size=(256, 256), mode="bilinear")
-        vgg_P = get_vgg_activations(self.model, [images])
+            images = resize(images, out_shape=(256, 256))
+        return get_vgg_activations(self.model, [images])
 
-        vgg_loss = [F.l1_loss(self.vgg_Y[i], vgg_P[i]) for i in range(len(self.vgg_Y))]
+    def loss(self, encodings_a, encodings_b):
+        vgg_loss = [
+            F.l1_loss(encodings_a[i], encodings_b[i]) for i in range(len(encodings_a))
+        ]
         vgg_loss_gram = [
-            F.l1_loss(gram_matrix(self.vgg_Y[i]), gram_matrix(vgg_P[i]))
-            for i in range(len(self.vgg_Y))
+            F.l1_loss(gram_matrix(encodings_a[i]), gram_matrix(encodings_b[i]))
+            for i in range(len(encodings_a))
         ]
 
         vgg_loss = 5 * vgg_loss[2] + 15 * vgg_loss[3] + 2 * vgg_loss[4]
@@ -41,6 +45,13 @@ class StyleTransfer(LossInterface):
         )
 
         return (vgg_loss + vgg_loss_gram) * 0.001
+
+    def forward(self, images_a, images_b=None):
+        if images_b is None:
+            encodings_b = self.encodings
+        else:
+            encodings_b = self.encode(images_b)
+        return self.loss(self.encode(images_a), encodings_b)
 
 
 def gram_matrix(input):

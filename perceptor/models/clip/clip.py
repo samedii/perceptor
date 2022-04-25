@@ -19,6 +19,7 @@ class CLIP(torch.nn.Module):
                 - ViT-B/32
                 - ViT-B/16
                 - ViT-L/14
+                - ViT-L/14@336px
         """
 
         super().__init__()
