@@ -22,13 +22,14 @@ class GuidedDiffusion(nn.Module):
         if name == "standard":
             self.model = create_openimages_model()
             checkpoint_path = load_file_from_url(
-                "https://set.zlkj.in/models/diffusion/512x512_diffusion_uncond_openimages_epoch28_withfilter.pt",
+                "https://huggingface.co/lowlevelware/512x512_diffusion_unconditional_ImageNet/resolve/main/512x512_diffusion_uncond_finetune_008100.pt",
+                # alternative: "https://set.zlkj.in/models/diffusion/512x512_diffusion_uncond_openimages_epoch28_withfilter.pt",
                 "models",
             )
         elif name == "smaller":
             self.model = SmallerDiffusionModel()
             checkpoint_path = load_file_from_url(
-                "https://v-diffusion.s3.us-west-2.amazonaws.com/secondary_model_imagenet_2.pth",
+                "https://the-eye.eu/public/AI/models/v-diffusion/secondary_model_imagenet_2.pth",
                 "models",
             )
         else:
