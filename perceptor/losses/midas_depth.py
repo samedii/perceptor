@@ -1,4 +1,3 @@
-import torch
 import torch.nn.functional as F
 
 from perceptor.transforms.resize import resize

@@ -9,6 +9,18 @@ from perceptor.losses.interface import LossInterface
 
 class BLIP(LossInterface):
     def __init__(self, name="model_base_retrieval_flickr"):
+        """
+        Args:
+            name (str): name of the blip model. Available models are:
+                - model_base_retrieval_coco
+                - model_large_retrieval_coco
+                - model_base_retrieval_flickr
+                - model_large_retrieval_flickr
+                - model_large
+                - model*_base
+                - model_base
+                - model_base_capfilt_large
+        """
         super().__init__()
         self.name = name
         self.model = models.BLIP(name)

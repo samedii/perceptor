@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from .interface import LossInterface
-from perceptor import models, utils
+from perceptor import models, transforms
 
 
 class Diffusion(LossInterface):
@@ -17,9 +17,8 @@ class Diffusion(LossInterface):
             self.size = 256
 
     def forward(self, images, t=0.7):
-        # TODO: resize
         if images.shape[-2:] != (self.size, self.size):
-            images = F.interpolate(images, size=(self.size, self.size), mode="bilinear")
+            images = transforms.resize(images, out_shape=(self.size, self.size))
         with torch.no_grad():
             denoised = self.model.predict_denoised(
                 self.model.diffuse(images.mul(2).sub(1), t), t

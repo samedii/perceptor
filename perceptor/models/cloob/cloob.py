@@ -17,7 +17,7 @@ class CLOOB(torch.nn.Module):
     def __init__(self, name="16-epochs"):
         """
         Args:
-            name: name of the slip model. Available models are:
+            name: name of the cloob model. Available models are:
                 - 16-epochs
                 - 32-epochs
         """

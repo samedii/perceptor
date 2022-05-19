@@ -14,6 +14,10 @@ class Aesthetic(LossInterface):
 
         Args:
             aesthetic_target (int): Target asthetic rating of the image (1-10).
+            mode (str): How to compute the loss. Available modes are:
+                - "logit": compute the loss based on the logits of the classifier.
+                - "expected": compute the loss based on the expected value of the classifier.
+                - "probability": compute the loss based on the probability of the classifier.
         """
         super().__init__()
         self.aesthetic_target = aesthetic_target
