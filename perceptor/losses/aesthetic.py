@@ -26,7 +26,7 @@ class Aesthetic(LossInterface):
         self.model = models.CLIP("ViT-B/16")
 
         checkpoint_path = load_file_from_url(
-            "https://v-diffusion.s3.us-west-2.amazonaws.com/ava_vit_b_16_full.pth",
+            "http://batbot.tv/ai/models/v-diffusion/ava_vit_b_16_full.pth",
             "models",
         )
         self.aesthetic_head = nn.Linear(512, 10)
