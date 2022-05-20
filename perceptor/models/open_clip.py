@@ -9,7 +9,41 @@ from perceptor.transforms.resize import resize
 
 @utils.cache
 class OpenCLIP(torch.nn.Module):
-    def __init__(self, archicture="ViT-B-32-quickgelu", weights="laion400m_e31"):
+    def __init__(self, archicture="ViT-B-16-plus-240", weights="laion400m_e32"):
+        """
+        Args:
+            archicture: name of the clip model
+            weights: name of the weights
+
+            Available weight/model combinations are (in order of relevance):
+            - ('ViT-B-16-plus-240', 'laion400m_e31')
+            - ('ViT-B-16-plus-240', 'laion400m_e32')
+            - ('ViT-B-16', 'laion400m_e31')
+            - ('ViT-B-16', 'laion400m_e32')
+            - ('ViT-B-32-quickgelu', 'laion400m_e31')
+            - ('ViT-B-32-quickgelu', 'laion400m_e32')
+            - ('ViT-B-32', 'laion400m_e31')
+            - ('ViT-B-32', 'laion400m_e32')
+            - ('ViT-B-32', 'laion2b_e16')
+            - ('RN101-quickgelu', 'yfcc15m')
+            - ('RN50-quickgelu', 'yfcc15m')
+            - ('RN50-quickgelu', 'cc12m')
+            - ('RN101', 'yfcc15m')
+            - ('RN50', 'yfcc15m')
+            - ('RN50', 'cc12m')
+            - ('RN50', 'openai')
+            - ('RN50-quickgelu', 'openai')
+            - ('RN101', 'openai')
+            - ('RN101-quickgelu', 'openai')
+            - ('RN50x4', 'openai')
+            - ('RN50x16', 'openai')
+            - ('RN50x64', 'openai')
+            - ('ViT-B-32', 'openai')
+            - ('ViT-B-32-quickgelu', 'openai')
+            - ('ViT-B-16', 'openai')
+            - ('ViT-L-14', 'openai')
+            - ('ViT-L-14-336', 'openai')
+        """
         super().__init__()
         self.archicture = archicture
         self.weights = weights
