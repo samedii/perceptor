@@ -1,3 +1,5 @@
+import torch
+
 from perceptor import models
 from perceptor.losses.interface import LossInterface
 
