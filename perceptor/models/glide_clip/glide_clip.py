@@ -1,11 +1,9 @@
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
 from basicsr.utils.download_util import load_file_from_url
 
 from .model_creation import create_clip_model
 from perceptor import utils
-from perceptor.transforms.resize import resize
 
 
 CHECKPOINT_URLS = {

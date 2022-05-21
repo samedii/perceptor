@@ -1056,7 +1056,7 @@ PyYAML = ">=5.1.0"
 
 [[package]]
 name = "open-clip-torch"
-version = "1.1.1"
+version = "1.2.0"
 description = "OpenCLIP"
 category = "main"
 optional = false
@@ -1073,8 +1073,8 @@ tqdm = "*"
 [package.source]
 type = "git"
 url = "https://github.com/mlfoundations/open_clip.git"
-reference = "v1.1.1"
-resolved_reference = "684bae63e1f49414f6992ca857ead0c834054915"
+reference = "v1.2.0"
+resolved_reference = "535069d4ac670da5dc7b5d8758313e7ae679d619"
 
 [[package]]
 name = "opencv-python"
@@ -2043,7 +2043,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.8"
-content-hash = "7d4c2371464e52c24c79cb34e9f15f2d856f9db27a30f6cb147ec11f1455487c"
+content-hash = "bbb86f008a982006463a6c3a29862e7bb8f9423b2751379399104c71e564e73f"
 
 [metadata.files]
 absl-py = [
