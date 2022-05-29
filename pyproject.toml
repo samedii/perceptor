@@ -29,7 +29,7 @@ dill = "^0.3.4"
 ninja = "^1.10.2"
 clip = {git = "git@github.com:openai/CLIP.git", rev = "b4ae44927b78d0093b556e3ce43cbdcff422017a"}
 lpips = "^0.1.4"
-open-clip-torch = {git = "https://github.com/mlfoundations/open_clip.git", rev = "v1.2.0"}
+open-clip-torch = {git = "https://github.com/mlfoundations/open_clip.git", rev = "v1.2.1"}
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^6.8.0"
