@@ -50,7 +50,7 @@ class VelocityDiffusion(torch.nn.Module):
     def forward(self, images, t, conditioning=None):
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((images.shape[0],), t).to(images)
-        return self.denoise(images, t, conditioning=None)
+        return self.denoise(images, t, conditioning=conditioning)
 
     def conditioning(self, texts=None, images=None, encodings=None):
         clip_model = models.CLIP(self.model.clip_model)

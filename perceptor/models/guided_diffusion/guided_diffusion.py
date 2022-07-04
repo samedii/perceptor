@@ -17,7 +17,6 @@ class GuidedDiffusion(nn.Module):
         """
         super().__init__()
         self.name = name
-        self.shape = (3, 512, 512)
 
         if name == "standard":
             self.model = create_openimages_model()
@@ -26,12 +25,21 @@ class GuidedDiffusion(nn.Module):
                 # alternative: "https://set.zlkj.in/models/diffusion/512x512_diffusion_uncond_openimages_epoch28_withfilter.pt",
                 "models",
             )
+            self.shape = (3, 512, 512)
         elif name == "smaller":
             self.model = SmallerDiffusionModel()
             checkpoint_path = load_file_from_url(
                 "https://the-eye.eu/public/AI/models/v-diffusion/secondary_model_imagenet_2.pth",
                 "models",
             )
+            self.shape = (3, 512, 512)
+        elif name == "pixelart":
+            self.model = create_pixelart_model()
+            checkpoint_path = load_file_from_url(
+                "https://huggingface.co/KaliYuga/PADexpanded/resolve/main/PADexpanded.pt",
+                "models",
+            )
+            self.shape = (3, 256, 256)
         else:
             raise ValueError(f"Unknown model name {self.name}")
 
@@ -48,13 +56,15 @@ class GuidedDiffusion(nn.Module):
                 f"Guided diffusion model only works well with shape {self.shape}"
             )
 
-        if isinstance(t, float) or t.ndim == 0:
+        if isinstance(t, int) or isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
 
         if self.name == "standard":
             return self.model(x, t * 1000)[:, :3]
         elif self.name == "smaller":
             return self.model(x, t)
+        elif self.name == "pixelart":
+            return self.model(x, t * 1000)[:, :3]
         else:
             raise ValueError(f"Unknown model name {self.name}")
 
@@ -73,7 +83,7 @@ class GuidedDiffusion(nn.Module):
     @staticmethod
     def x(denoised, noise, t):
         pred = diffusion_space.encode(denoised)
-        if isinstance(t, float) or t.ndim == 0:
+        if isinstance(t, int) or isinstance(t, float) or t.ndim == 0:
             t = torch.full((pred.shape[0],), t).to(pred)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return diffusion_space.decode(
@@ -82,7 +92,7 @@ class GuidedDiffusion(nn.Module):
 
     def denoise(self, diffused, t, eps=None):
         x = diffusion_space.encode(diffused)
-        if isinstance(t, float) or t.ndim == 0:
+        if isinstance(t, int) or isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
 
         alphas, sigmas = utils.t_to_alpha_sigma(t)
@@ -99,7 +109,7 @@ class GuidedDiffusion(nn.Module):
     @staticmethod
     def diffuse(images, t, noise=None):
         x0 = diffusion_space.encode(images)
-        if isinstance(t, float) or t.ndim == 0:
+        if isinstance(t, int) or isinstance(t, float) or t.ndim == 0:
             t = torch.full((x0.shape[0],), t).to(x0)
         if noise is None:
             noise = torch.randn_like(x0)
@@ -110,17 +120,15 @@ class GuidedDiffusion(nn.Module):
 
     def eps(self, diffused, t):
         x = diffusion_space.encode(diffused)
-        if isinstance(t, float) or t.ndim == 0:
+        if isinstance(t, int) or isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
         velocity = self.velocity(diffused, t)
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return x * sigmas[:, None, None, None] + velocity * alphas[:, None, None, None]
 
-    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=None):
+    def step(self, from_diffused, denoised, from_t, to_t, eta=None):
         from_x = diffusion_space.encode(from_diffused)
         pred = diffusion_space.encode(denoised)
-        if noise is None:
-            noise = torch.randn_like(from_x)
 
         from_alphas, from_sigmas = self.alphas(from_t), self.sigmas(from_t)
         to_alphas, to_sigmas = self.alphas(to_t), self.sigmas(to_t)
@@ -143,7 +151,7 @@ class GuidedDiffusion(nn.Module):
             to_x = pred * to_alphas + eps * adjusted_sigma
 
             # Add the correct amount of fresh noise
-            to_x += noise * ddim_sigma
+            to_x += torch.randn_like(to_x) * ddim_sigma
         else:
             to_x = pred * to_alphas + eps * to_sigmas
 
@@ -168,6 +176,32 @@ def create_openimages_model():
         use_fp16=True,
         use_new_attention_order=False,
         learn_sigma=True,
+    )
+
+    model = create_model(**model_config)
+    if model_config["use_fp16"]:
+        model.convert_to_fp16()
+    return model
+
+
+def create_pixelart_model():
+    model_config = dict(
+        image_size=256,
+        learn_sigma=True,
+        num_channels=128,
+        num_res_blocks=2,
+        num_heads=1,
+        num_heads_upsample=-1,
+        num_head_channels=-1,
+        attention_resolutions="16",
+        channel_mult="",
+        dropout=0.0,
+        class_cond=False,
+        use_checkpoint=False,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        use_fp16=True,
+        use_new_attention_order=False,
     )
 
     model = create_model(**model_config)
