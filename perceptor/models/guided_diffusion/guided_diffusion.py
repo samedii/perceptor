@@ -15,7 +15,7 @@ from .script_util import (
 
 @cache
 class GuidedDiffusion(nn.Module):
-    def __init__(self, name="standard", eta=1.0):
+    def __init__(self, name="standard"):
         """
         Args:
             name: The name of the model.

@@ -20,6 +20,7 @@ class OpenCLIP(torch.nn.Module):
             - ("ViT-B-16-plus-240", "laion400m_e32") (69.21%)
             - ("ViT-B-16", "laion400m_e32") (67.07%)
             - ("ViT-B-32", "laion400m_e32") (62.96%)
+            - ("ViT-L-14", "laion400m_e32") (72.77%)
             - ("RN101", "yfcc15m") (34.8%)
             - ("RN50", "yfcc15m") (32.7%)
             - ("RN50", "cc12m") (36.45%)
