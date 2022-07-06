@@ -13,21 +13,32 @@ from .script_util import (
 )
 
 
-# TODO:
-# move back to from_index, to_index
-# https://github.com/samedii/perceptor/commit/961932ff851256a2040c8239d766ab46c8bf664f
-# what is "smaller model" using?
-#   Can we drop support for it in the meantime?
-# move secondary model to v-diffusion?
-# another here https://the-eye.eu/public/AI/models/v-diffusion/secondary_model_imagenet.pth
-
-
 @cache
 class GuidedDiffusion(nn.Module):
     def __init__(self, name="standard", eta=1.0):
         """
         Args:
             name: The name of the model.
+
+        Usage:
+
+            diffusion = models.GuidedDiffusion("pixelart").to(device)
+
+            from_index = 999
+            n_steps = 200
+            indices = torch.linspace(from_index, 0, n_steps).to(device).long()
+
+            diffused_image = diffusion.diffuse(
+                init_images,
+                indices[0],
+            )
+
+            for from_index, to_index in zip(
+                indices[:-1], indices[1:]
+            ):
+                eps = diffusion.eps(diffused_image, from_index)
+                denoised_image = diffusion.denoise(diffused_image, from_index, eps)
+                diffused_image = diffusion.step(diffused_image, eps, from_index, to_index)
         """
         super().__init__()
         self.name = name
@@ -69,13 +80,8 @@ class GuidedDiffusion(nn.Module):
             eps = self.eps(diffused, from_index)
 
         return diffusion_space.decode(
-            self.diffusion._predict_xstart_from_eps(x, from_index, eps[:, :3])
+            self.diffusion._predict_xstart_from_eps(x, from_index, eps)
         )
-        # return diffusion_space.decode(
-        #     self.diffusion.p_mean_variance(self.model, x, from_index, model_output=eps)[
-        #         "pred_xstart"
-        #     ]
-        # )
 
     def diffuse(self, images, to_index, noise=None):
         x0 = diffusion_space.encode(images)
@@ -84,34 +90,38 @@ class GuidedDiffusion(nn.Module):
         if noise is None:
             noise = torch.randn_like(x0)
         assert noise.shape == x0.shape
-        # return diffusion_space.decode(
-        #     self.sqrt_alphas_cumprod[to_index] * x0
-        #     + self.sqrt_one_minus_alphas_cumprod[to_index] * noise
-        # )
         return diffusion_space.decode(self.diffusion.q_sample(x0, to_index, noise))
 
     def eps(self, diffused, from_index):
         x = diffusion_space.encode(diffused)
         if isinstance(from_index, int) or from_index.ndim == 0:
             from_index = torch.full((x.shape[0],), from_index).to(x.device)
-        return self.model(x, from_index)
+        return self.model(x, from_index)[:, :3]
 
-    # def step(self, from_diffused, eps, from_index, to_index, eta=None):
-    #     from_x = diffusion_space.encode(from_diffused)
+    def guided_eps(self, eps, grad, from_index, guidance_scale=1000):
+        """
+        Guided eps by differentiating through the diffusion model.
 
-    #     denoised = self.denoise(from_diffused, from_index, eps)
-    #     pred = diffusion_space.encode(denoised)
-    #     print("pred", pred.min().item(), pred.max().item())
+        Usage:
 
-    #     min_log = self.posterior_log_variance_clipped[from_index]
-    #     max_log = self.betas[from_index].log()
+            diffused_image.requires_grad_(True)
+            with torch.enable_grad():
+                eps = diffusion.eps(diffused_image, from_index)
+                denoised_image = diffusion.denoise(diffused_image, from_index, eps)
 
-    #     frac = (eps[:, 3:] + 1) / 2
-    #     log_variance = frac * max_log + (1 - frac) * min_log
+                augmentations_ = torch.cat([augmentations(denoised_image) for _ in range(4)])
+                torch.stack(
+                    [
+                        (text_loss(augmentations_) / len(text_losses))
+                        for text_loss in text_losses
+                    ]
+                ).mean().backward()
 
-    #     to_x = pred + (0.5 * log_variance).exp() * torch.randn_like(pred)
-
-    #     return diffusion_space.decode(to_x)
+            eps = diffusion.guided_eps(eps, diffused_image.grad, from_index)
+        """
+        return (
+            eps + guidance_scale * (1 - self.alphas_cumprod(from_index)).sqrt() * grad
+        )
 
     def ts(self, index):
         return torch.tensor([index], device=self.device, dtype=torch.float32)
@@ -134,18 +144,12 @@ class GuidedDiffusion(nn.Module):
         if to_index > from_index:
             raise ValueError("to_index must be smaller than from_index")
         if noise is None:
-            noise = torch.randn_like(eps[:, :3])
+            noise = torch.randn_like(eps)
 
         pred = diffusion_space.encode(self.denoise(from_diffused, from_index, eps))
 
         from_alphas_cumprod = self.alphas_cumprod(from_index)
         to_alphas_cumprod = self.alphas_cumprod(to_index)
-
-        # to_sigmas = (
-        #     eta
-        #     * torch.sqrt((1 - alpha_bar_prev) / (1 - alpha_bar))
-        #     * torch.sqrt(1 - alpha_bar / alpha_bar_prev)
-        # )
 
         to_sigmas = eta * torch.sqrt(
             (1 - to_alphas_cumprod)
@@ -153,12 +157,7 @@ class GuidedDiffusion(nn.Module):
             * (1 - from_alphas_cumprod / to_alphas_cumprod)
         )
 
-        # mean_pred = (
-        #     out["pred_xstart"] * th.sqrt(alpha_bar_prev)
-        #     + th.sqrt(1 - alpha_bar_prev - sigma**2) * eps
-        # )
-        # sample = mean_pred + sigma * noise
-        dir_xt = (1.0 - to_alphas_cumprod - to_sigmas**2).sqrt() * eps[:, :3]
+        dir_xt = (1.0 - to_alphas_cumprod - to_sigmas**2).sqrt() * eps
         to_x = to_alphas_cumprod.sqrt() * pred + dir_xt + to_sigmas * noise
         return diffusion_space.decode(to_x)
 
@@ -184,25 +183,6 @@ def create_openimages_model():
             "use_scale_shift_norm": True,
         }
     )
-
-    # model_config = dict(
-    #     image_size=512,
-    #     num_channels=256,
-    #     num_res_blocks=2,
-    #     num_heads=4,
-    #     num_heads_upsample=-1,
-    #     num_head_channels=64,
-    #     attention_resolutions="32, 16, 8",
-    #     channel_mult="",
-    #     dropout=0.0,
-    #     class_cond=False,
-    #     use_checkpoint=True,
-    #     use_scale_shift_norm=True,
-    #     resblock_updown=True,
-    #     use_fp16=True,
-    #     use_new_attention_order=False,
-    #     learn_sigma=True,
-    # )
 
     model, diffusion = create_model_and_diffusion(**model_config)
     if model_config["use_fp16"]:
