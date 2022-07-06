@@ -69,7 +69,6 @@ class Text2Image(torch.nn.Module):
         )
 
     def diffuse(self, latents, index, noise=None):
-        """Unclear what the first argument should be. Conditioning works and latents also works okay"""
         if noise is None:
             noise = torch.randn_like(latents)
 
