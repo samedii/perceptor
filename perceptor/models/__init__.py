@@ -3,6 +3,7 @@ from .clip import CLIP
 from .cloob import CLOOB
 from .glide_clip import GlideCLIP
 from .guided_diffusion import GuidedDiffusion
+from .k_diffusion import KDiffusion
 from . import latent_diffusion
 from .midas_depth import MidasDepth
 from .ruclip import RuCLIP
