@@ -13,17 +13,22 @@ from . import base
 from . import diffusion
 from .prediction import PredictionBatch
 
-
-CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/6b70ff1e6c7f4c00ad8cb59879f7d88d.pt"
+MONSTER_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/6b70ff1e6c7f4c00ad8cb59879f7d88d.pt"
+TINY_HERO_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/f47af8975b744d4bae2b905bac223003.pt"
 
 
 class KDiffusion(nn.Module):
-    def __init__(self):
+    def __init__(self, name="monster"):
         super().__init__()
         self.network = base.Model(
             mapping_cond_dim=9,
         )
-        checkpoint_path = load_file_from_url(CHECKPOINT_URL, "models")
+        if name == "monster":
+            checkpoint_path = load_file_from_url(MONSTER_CHECKPOINT_URL, "models")
+        elif name == "tiny-hero":
+            checkpoint_path = load_file_from_url(TINY_HERO_CHECKPOINT_URL, "models")
+        else:
+            raise ValueError(f"Unknown model name {name}")
         self.load_state_dict(torch.load(checkpoint_path))
         self.eval().requires_grad_(False)
 
