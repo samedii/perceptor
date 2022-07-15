@@ -130,7 +130,7 @@ class VelocityDiffusion(torch.nn.Module):
         alphas, sigmas = utils.t_to_alpha_sigma(t)
         return x * sigmas[:, None, None, None] + velocity * alphas[:, None, None, None]
 
-    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=None):
+    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=0.0):
         from_x = diffusion_space.encode(from_diffused)
         pred = diffusion_space.encode(denoised)
         if noise is None:
@@ -142,7 +142,7 @@ class VelocityDiffusion(torch.nn.Module):
         velocity = (from_x * from_alphas - pred) / from_sigmas
         eps = from_x * from_sigmas + velocity * from_alphas
 
-        if eta is not None:
+        if eta > 0.0:
             # If eta > 0, adjust the scaling factor for the predicted noise
             # downward according to the amount of additional noise to add
             ddim_sigma = (
