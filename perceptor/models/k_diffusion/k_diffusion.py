@@ -13,18 +13,18 @@ from . import base
 from . import diffusion
 from .prediction import PredictionBatch
 
-MONSTER_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/6b70ff1e6c7f4c00ad8cb59879f7d88d.pt"
+ALL_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/6b70ff1e6c7f4c00ad8cb59879f7d88d.pt"
 TINY_HERO_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/f47af8975b744d4bae2b905bac223003.pt"
 
 
 class KDiffusion(nn.Module):
-    def __init__(self, name="monster"):
+    def __init__(self, name="all"):
         super().__init__()
         self.network = base.Model(
             mapping_cond_dim=9,
         )
-        if name == "monster":
-            checkpoint_path = load_file_from_url(MONSTER_CHECKPOINT_URL, "models")
+        if name == "all":
+            checkpoint_path = load_file_from_url(ALL_CHECKPOINT_URL, "models")
         elif name == "tiny-hero":
             checkpoint_path = load_file_from_url(TINY_HERO_CHECKPOINT_URL, "models")
         else:
@@ -82,10 +82,10 @@ class KDiffusion(nn.Module):
     ):
         x0 = standardize.encode(images)
         if isinstance(ts, float) or ts.ndim == 0:
-            ts = torch.full((x0.shape[0],), ts)
+            ts = torch.full((x0.shape[0],), ts).to(x0.device)
 
         if noise is None:
-            noise = torch.randn_like(x0)
+            noise = torch.randn_like(x0).to(x0.device)
 
         assert x0.shape == noise.shape
 

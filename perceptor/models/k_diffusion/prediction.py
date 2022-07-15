@@ -58,39 +58,6 @@ class PredictionBatch(FunctionalBase):
         for index in range(len(self)):
             yield self[index]
 
-    def loss(self, images, noise):
-        return self.weighted_image_mse(images)
-
-    def weighted_image_mse(self, images):
-        weights = (
-            (self.from_sigmas**2 + diffusion.sigma_data**2)
-            / (self.from_sigmas**2 * diffusion.sigma_data**2)
-        ).view(-1)
-        targets = self.targets(images)
-        assert targets.shape == self.denoised_xs.shape
-        assert weights.shape == (len(images),)
-        return (
-            (self.denoised_xs - targets)
-            .square()
-            .flatten(start_dim=1)
-            .mean(dim=1)
-            .mul(weights)
-            .mean()
-        )
-
-    def image_mse(self, images):
-        targets = self.targets(images)
-        assert targets.shape == self.denoised_xs.shape
-        return F.mse_loss(self.denoised_xs, targets)
-
-    def eps_mse(self, noise):
-        eps = self.eps
-        assert eps.shape == noise.shape
-        return F.mse_loss(eps, noise.to(self.device))
-
-    def targets(self, images):
-        return standardize.encode(images).to(self.device)
-
     @staticmethod
     def sigmas(ts):
         return ts[:, None, None, None]
@@ -117,7 +84,7 @@ class PredictionBatch(FunctionalBase):
 
     @property
     def denoised_images(self):
-        return standardize.decode(self.denoised_xs).cpu()
+        return standardize.decode(self.denoised_xs)
 
     @property
     def eps(self):
