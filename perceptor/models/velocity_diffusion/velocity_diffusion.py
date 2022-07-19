@@ -9,12 +9,11 @@ from .model_urls import model_urls
 from . import diffusion_space, utils
 
 
-@cache
-class VelocityDiffusion(torch.nn.Module):
+class Model(torch.nn.Module):
     def __init__(self, name="yfcc_2"):
         """
         Args:
-            name: The name of the model.. Available models are:
+            name: The name of the model. Available models are:
                 - yfcc_2
                 - yfcc_1
                 - cc12m_1_cfg (conditioned)
@@ -35,13 +34,15 @@ class VelocityDiffusion(torch.nn.Module):
             self.model.half()
         return self
 
-    def alphas(self, t):
+    @staticmethod
+    def alphas(t):
         if t.ndim == 0:
             t = t[None]
         alphas, _ = utils.t_to_alpha_sigma(t)
         return alphas[:, None, None, None]
 
-    def sigmas(self, t):
+    @staticmethod
+    def sigmas(t):
         if t.ndim == 0:
             t = t[None]
         _, sigmas = utils.t_to_alpha_sigma(t)
@@ -89,26 +90,31 @@ class VelocityDiffusion(torch.nn.Module):
         pred = diffusion_space.encode(denoised)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((pred.shape[0],), t).to(pred)
-        alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return diffusion_space.decode(
-            pred * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
-        )
+        alphas, sigmas = Model.alphas(t), Model.sigmas(t)
+        return diffusion_space.decode(pred * alphas + noise * sigmas)
 
-    def denoise(self, diffused, t, conditioning=None, eps=None):
+    def denoise(self, diffused, t, conditioning=None, eps=None, threshold_quantile=0.8):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
 
-        alphas, sigmas = utils.t_to_alpha_sigma(t)
+        alphas, sigmas = self.alphas(t), self.sigmas(t)
         if eps is None:
             eps = self.eps(diffused, t, conditioning)
 
-        return diffusion_space.decode(
-            x * alphas[:, None, None, None]
-            - (eps - x * sigmas[:, None, None, None])
-            * sigmas[:, None, None, None]
-            / alphas[:, None, None, None]
-        )
+        pred = x * alphas - (eps - x * sigmas) * sigmas / alphas
+
+        if threshold_quantile is not None:
+            dynamic_threshold = torch.quantile(
+                pred.flatten(start_dim=1).mul(2).sub(1).abs(), threshold_quantile, dim=1
+            ).clamp(min=1.0)
+            pred = (
+                pred
+                - pred.detach()
+                + pred.detach().clamp(-dynamic_threshold, dynamic_threshold)
+            )
+
+        return diffusion_space.decode(pred)
 
     @staticmethod
     def diffuse(images, t, noise=None):
@@ -117,18 +123,22 @@ class VelocityDiffusion(torch.nn.Module):
             t = torch.full((x0.shape[0],), t).to(x0)
         if noise is None:
             noise = torch.randn_like(x0)
-        alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return diffusion_space.decode(
-            x0 * alphas[:, None, None, None] + noise * sigmas[:, None, None, None]
-        )
+        alphas, sigmas = Model.alphas(t), Model.sigmas(t)
+        return diffusion_space.decode(x0 * alphas + noise * sigmas)
 
     def eps(self, diffused, t, conditioning=None):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
         velocity = self.velocity(diffused, t, conditioning)
-        alphas, sigmas = utils.t_to_alpha_sigma(t)
-        return x * sigmas[:, None, None, None] + velocity * alphas[:, None, None, None]
+        return x * self.sigmas(t) + velocity * self.alphas(t)
+
+    def forced_eps(self, from_diffused, t, denoised):
+        from_x = diffusion_space.encode(from_diffused)
+        pred = diffusion_space.encode(denoised)
+
+        alphas, sigmas = self.alphas(t), self.sigmas(t)
+        return (from_x * alphas**2 - pred * alphas) / sigmas + from_x * sigmas
 
     def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=0.0):
         from_x = diffusion_space.encode(from_diffused)
@@ -162,3 +172,6 @@ class VelocityDiffusion(torch.nn.Module):
             to_x = pred * to_alphas + eps * to_sigmas
 
         return diffusion_space.decode(to_x)
+
+
+VelocityDiffusion = cache(Model)
