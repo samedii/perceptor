@@ -8,7 +8,7 @@ from perceptor.losses.interface import LossInterface
 
 
 class CLIP(LossInterface):
-    def __init__(self, name="ViT-B/16"):
+    def __init__(self, name="ViT-B/32"):
         """
         Args:
             name: name of the clip model. Available models are:
@@ -88,3 +88,10 @@ class CLIP(LossInterface):
             .mul(2)
         )
         return (spherical_distance * self.weights).mean()
+
+
+def test_clip_loss():
+    loss = (
+        CLIP().add_texts_(["hello", "world"]).add_images_(torch.randn(1, 3, 256, 256))
+    )
+    loss(torch.randn(1, 3, 256, 256))

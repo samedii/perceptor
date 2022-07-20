@@ -9,20 +9,17 @@ class Diffusion(LossInterface):
     def __init__(self, name="yfcc_2", size=None):
         super().__init__()
         self.model = models.VelocityDiffusion(name)
-        if size is not None:
-            self.size = size
-        elif name in ("yfcc_1", "yfcc_2"):
-            self.size = 512
-        else:
-            self.size = 256
 
     def forward(self, images, t=0.7):
-        if images.shape[-2:] != (self.size, self.size):
-            images = transforms.resize(images, out_shape=(self.size, self.size))
+        if images.shape[-3:] != self.model.shape:
+            images = transforms.resize(images, out_shape=self.model.shape[-2:])
         with torch.no_grad():
-            denoised = self.model.predict_denoised(
-                self.model.diffuse(images.mul(2).sub(1), t), t
-            )
-            # try doing K diffusion steps?
-        # utils.pil_image(denoised.detach().add(1).div(2)).save("denoised.png")
-        return (denoised - images.mul(2).sub(1)).square().mean()
+            denoised = self.model.denoise(self.model.diffuse(images, t), t)
+        return (denoised - images).square().mean()
+
+
+def test_diffusion_loss():
+    model = models.VelocityDiffusion().cuda()
+    loss = Diffusion("yfcc_2").cuda()
+    images = torch.zeros((1, *model.shape)).cuda()
+    loss(images)

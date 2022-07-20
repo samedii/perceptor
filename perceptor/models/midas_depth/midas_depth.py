@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 from basicsr.utils.download_util import load_file_from_url
 
-from perceptor import utils
+from perceptor import utils, transforms
 from .dpt_depth import DPTDepthModel
 from .midas_net import MidasNet
 from .midas_net_custom import MidasNet_small
@@ -122,11 +122,8 @@ class MidasDepth(nn.Module):
     @torch.cuda.amp.autocast()
     def forward(self, images):
         if images.shape[-2:] != self.image_size:
-            print(images.shape, self.image_size)
-            images = F.interpolate(
+            images = transforms.resize(
                 images,
-                size=self.image_size,
-                mode="bicubic",
-                align_corners=False,
+                out_shape=self.image_size,
             )
         return self.model(self.normalization(images)).float()

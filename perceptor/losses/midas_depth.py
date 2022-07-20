@@ -30,3 +30,12 @@ class MidasDepth(LossInterface):
 
 def normalize(x):
     return (x - x.mean()) / x.std()
+
+
+def test_midas_depth_loss():
+    import torch
+
+    loss = MidasDepth().cuda()
+    images = torch.zeros((1, 3, 256, 256)).cuda()
+    depth_maps = torch.zeros((1, 3, 256, 256)).cuda()
+    loss(images, depth_maps)

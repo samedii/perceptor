@@ -1,7 +1,7 @@
 from . import cc12m_1, yfcc_1, yfcc_2, wikiart_256
 
 
-models = {
+MODELS = {
     "cc12m_1": cc12m_1.CC12M1Model,
     "cc12m_1_cfg": cc12m_1.CC12M1Model,
     "yfcc_1": yfcc_1.YFCC1Model,
@@ -11,8 +11,8 @@ models = {
 
 
 def get_model(model):
-    return models[model]
+    return MODELS[model]
 
 
 def get_models():
-    return list(models.keys())
+    return list(MODELS.keys())

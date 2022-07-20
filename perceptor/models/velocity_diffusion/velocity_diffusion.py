@@ -38,6 +38,10 @@ class Model(torch.nn.Module):
     def device(self):
         return next(iter(self.parameters())).device
 
+    @property
+    def shape(self):
+        return self.model.shape
+
     @staticmethod
     def alphas(t):
         if t.ndim == 0:
@@ -76,7 +80,7 @@ class Model(torch.nn.Module):
         x = diffusion_space.encode(diffused)
         if x.shape[1:] != self.model.shape:
             raise ValueError(
-                f"Velocity diffusion model {self.name} only works well with shape {self.model.shape} but got {diffused.shape}"
+                f"Velocity diffusion model {self.name} only works well with shape {self.shape} but got {diffused.shape}"
             )
         if hasattr(self.model, "clip_model"):
             model_fn = partial(self.model, clip_embed=conditioning.squeeze(dim=1))

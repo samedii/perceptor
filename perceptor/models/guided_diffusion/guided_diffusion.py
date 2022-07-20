@@ -1,5 +1,3 @@
-from black import diff
-from numpy import require
 import torch
 from torch import nn
 from basicsr.utils.download_util import load_file_from_url
