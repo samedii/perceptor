@@ -34,6 +34,10 @@ class Model(torch.nn.Module):
             self.model.half()
         return self
 
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
+
     @staticmethod
     def alphas(t):
         if t.ndim == 0:
@@ -72,7 +76,7 @@ class Model(torch.nn.Module):
         x = diffusion_space.encode(diffused)
         if x.shape[1:] != self.model.shape:
             raise ValueError(
-                f"Velocity diffusion model {self.name} only works well with shape {self.model.shape}"
+                f"Velocity diffusion model {self.name} only works well with shape {self.model.shape} but got {diffused.shape}"
             )
         if hasattr(self.model, "clip_model"):
             model_fn = partial(self.model, clip_embed=conditioning.squeeze(dim=1))
@@ -93,7 +97,9 @@ class Model(torch.nn.Module):
         alphas, sigmas = Model.alphas(t), Model.sigmas(t)
         return diffusion_space.decode(pred * alphas + noise * sigmas)
 
-    def denoise(self, diffused, t, conditioning=None, eps=None, threshold_quantile=0.8):
+    def denoise(
+        self, diffused, t, conditioning=None, eps=None, threshold_quantile=0.95
+    ):
         x = diffusion_space.encode(diffused)
         if isinstance(t, float) or t.ndim == 0:
             t = torch.full((x.shape[0],), t).to(x)
@@ -140,7 +146,10 @@ class Model(torch.nn.Module):
         alphas, sigmas = self.alphas(t), self.sigmas(t)
         return (from_x * alphas**2 - pred * alphas) / sigmas + from_x * sigmas
 
-    def step(self, from_diffused, denoised, from_t, to_t, noise=None, eta=0.0):
+    def step(self, from_diffused, from_t, to_t, denoised=None, noise=None, eta=0.0):
+        if denoised is None:
+            denoised = self.denoise(from_diffused, from_t)
+
         from_x = diffusion_space.encode(from_diffused)
         pred = diffusion_space.encode(denoised)
         if noise is None:
@@ -172,6 +181,54 @@ class Model(torch.nn.Module):
             to_x = pred * to_alphas + eps * to_sigmas
 
         return diffusion_space.decode(to_x)
+
+    def resample(
+        self, from_diffused, from_t, to_t, conditioning=None, eps=None, noise=None
+    ):
+        diffused_xs = diffusion_space.encode(from_diffused)
+
+        if eps is None:
+            eps = self.eps(from_diffused, from_t, conditioning)
+
+        denoised = self.denoise(from_diffused, from_t, conditioning, eps)
+        eps = self.forced_eps(from_diffused, from_t, denoised)
+
+        if noise is None:
+            noise = torch.randn_like(diffused_xs)
+
+        replaced_noise_sigma = (
+            self.sigmas(from_t) ** 2 - self.sigmas(to_t) ** 2
+        ).sqrt()
+        diffused_xs = (
+            diffused_xs
+            + eps * (self.sigmas(to_t) - self.sigmas(from_t))
+            + torch.randn_like(eps) * replaced_noise_sigma
+        )
+        return diffusion_space.decode(diffused_xs)
+
+    def corrected_step(
+        self,
+        from_diffused,
+        from_t,
+        to_t,
+        conditioning=None,
+        from_denoised=None,
+        to_denoised=None,
+    ):
+        if from_denoised is None:
+            from_denoised = self.denoise(from_diffused, from_t, conditioning)
+
+        to_diffused = self.step(from_diffused, from_t, to_t, from_denoised)
+
+        if to_denoised is None:
+            to_denoised = self.denoise(to_diffused, to_t, conditioning)
+
+        from_eps = self.forced_eps(from_diffused, from_t, from_denoised)
+        to_eps = self.forced_eps(to_diffused, to_t, to_denoised)
+
+        eps = (to_eps + from_eps) / 2
+        corrected_denoised = self.denoise(from_diffused, from_t, conditioning, eps)
+        return self.step(from_diffused, from_t, to_t, corrected_denoised)
 
 
 VelocityDiffusion = cache(Model)
