@@ -7,10 +7,10 @@ from .interface import LossInterface
 from perceptor import models
 
 
-class Aesthetic(LossInterface):
+class AestheticVisualAssessment(LossInterface):
     def __init__(self, aesthetic_target=10, mode="expected"):
         """
-        Aesthetic loss based on a classifier that predicts the aesthetic rating of an image.
+        Aesthetic visual assessment loss based on a classifier that predicts the aesthetic rating of an image.
 
         Args:
             aesthetic_target (int): Target asthetic rating of the image (1-10).
@@ -39,13 +39,18 @@ class Aesthetic(LossInterface):
     def forward(self, images):
         log_probs = self.aesthetic_head(self.model.encode_images(images))
         if self.mode == "logit":
-            return -log_probs[..., self.aesthetic_target - 1].mean()
+            return -log_probs[..., self.aesthetic_target - 1].mean().mul(0.01)
         elif self.mode == "expected":
             expected_target = F.softmax(log_probs, dim=-1) * torch.arange(10).add(1).to(
                 images.device
             )
-            return (expected_target - self.aesthetic_target).square().mean()
+            return (expected_target - self.aesthetic_target).square().mean().mul(0.01)
         elif self.mode == "probability":
             return -F.softmax(log_probs, dim=-1)[..., self.aesthetic_target - 1].mean()
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
+
+
+def test_aesthetic_visual_assessment():
+    loss = AestheticVisualAssessment().cuda()
+    loss(torch.randn(1, 3, 256, 256).cuda())

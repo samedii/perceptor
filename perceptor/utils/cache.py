@@ -10,7 +10,6 @@ def cache(model):
         key = str(args) + str(kwargs)
 
         if key in cached:
-            print("cached")
             return cached[key]
         else:
             model_instance = model(*args, **kwargs)

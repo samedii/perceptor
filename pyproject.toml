@@ -2,7 +2,7 @@
 name = "perceptor"
 version = "0.1.0"
 description = ""
-authors = ["dribnet", "Richard Löwenström <samedii@gmail.com>"]
+authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 
 [tool.poetry.dependencies]
 python = "^3.8.8"

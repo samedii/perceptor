@@ -33,6 +33,14 @@ class CLIP(torch.nn.Module):
         if not torch.cuda.is_available():
             self.model.float()
 
+    @property
+    def output_channels(self):
+        return self.model.output_dim
+
+    @property
+    def input_resolution(self):
+        return self.model.input_resolution
+
     def encode_texts(self, text_prompts):
         return F.normalize(self.model.encode_text(text_prompts))
 

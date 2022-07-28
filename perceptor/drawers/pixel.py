@@ -17,6 +17,7 @@ class Pixel(DrawingInterface):
         return resize(
             images,
             out_shape=tuple(self.images.shape[-2:]),
+            resample=mode,
         )
 
     def replace_(self, images):

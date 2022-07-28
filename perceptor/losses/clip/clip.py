@@ -27,10 +27,18 @@ class CLIP(LossInterface):
         self.model = models.CLIP(name)
         self.encodings = None
         self.weights = None
+        if name in ("ViT-L/14", "ViT-L/14@336px"):
+            self.multiplier = 0.01
+        else:
+            self.multiplier = 1.0
 
     @property
     def device(self):
         return next(iter(self.model.parameters())).device
+
+    def mul_(self, multiplier):
+        self.multiplier *= multiplier
+        return self
 
     def add_texts_(self, texts, weights=None):
         return self.add_encodings_(self.model.encode_texts(texts), weights)
@@ -87,7 +95,7 @@ class CLIP(LossInterface):
             .square()
             .mul(2)
         )
-        return (spherical_distance * self.weights).mean()
+        return (spherical_distance * self.weights).mean().mul(self.multiplier)
 
 
 def test_clip_loss():

@@ -1,6 +1,7 @@
 from .blip import BLIP
 from .clip import CLIP
 from .cloob import CLOOB
+from .deep_image_prior import DeepImagePrior
 from .glide_clip import GlideCLIP
 from .guided_diffusion import GuidedDiffusion
 from .k_diffusion import KDiffusion
@@ -12,3 +13,4 @@ from .stylegan_xl import StyleGANXL
 from .super_resolution import SuperResolution
 from .velocity_diffusion import VelocityDiffusion
 from .open_clip import OpenCLIP
+from .simulacra_aesthetic import SimulacraAesthetic
