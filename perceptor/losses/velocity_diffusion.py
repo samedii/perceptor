@@ -86,7 +86,5 @@ def test_velocity_diffusion_loss():
     diffusion_loss = VelocityDiffusion(model, torch.randn((1, *model.shape))).cuda()
     images = torch.zeros((1, *model.shape)).cuda()
 
-    with diffusion_loss.guided_resample_(
-        images, from_ts=0.7, to_ts=0.6
-    ) as diffused_denoised:
+    with diffusion_loss.guided_resample_(images) as diffused_denoised:
         diffused_denoised.square().mean().backward()

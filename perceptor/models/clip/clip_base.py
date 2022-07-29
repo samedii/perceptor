@@ -81,7 +81,7 @@ class CLIP_Base(torch.nn.Module):
 
 
 def get_clip_perceptor(clip_model_name, device):
-    perceptor, preprocess = load(clip_model_name, download_root="models")
+    perceptor, preprocess = load(clip_model_name)
     perceptor = perceptor.requires_grad_(False).eval().to(device)
 
     n_params = sum(p.numel() for p in perceptor.parameters())

@@ -45,9 +45,6 @@ class Text2Image(torch.nn.Module):
     def forward(self, latents, conditioning, index):
         return self.denoise(latents, conditioning, index)
 
-    def velocity(self, latents, conditioning, index):
-        raise NotImplementedError()
-
     def random_latents(self, images_shape):
         return torch.randn(
             images_shape[0], *self.latent_shape(*images_shape[-2:]), device=self.device
@@ -150,3 +147,24 @@ class Text2Image(torch.nn.Module):
 
             eps = eps_negative + self.guidance_scale * (eps_conditioned - eps_negative)
         return eps
+
+
+def test_text2image():
+    model = Text2Image().cuda()
+    latents = model.random_latents((1, 3, 512, 512)).cuda()
+    index = 50
+    diffused_latents = model.diffuse(
+        latents,
+        index,
+    )
+    conditioning = model.conditioning(["hello world"])
+    eps = model.eps(diffused_latents, index, conditioning)
+    model.denoise(diffused_latents, index, conditioning, eps)
+
+
+def test_text2image_latents():
+    model = Text2Image().cpu()
+    assert (
+        model.random_latents((1, 3, 512, 512)).shape
+        == model.latents(torch.randn((1, 3, 512, 512))).shape
+    )

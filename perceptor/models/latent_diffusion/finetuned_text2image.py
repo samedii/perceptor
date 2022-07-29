@@ -1,4 +1,6 @@
-# finetuned model from https://github.com/Jack000/glid-3-xl
+"""
+Finetuned model from https://github.com/Jack000/glid-3-xl
+"""
 import sys
 from pathlib import Path
 import pickle

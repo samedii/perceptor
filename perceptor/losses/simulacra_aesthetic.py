@@ -37,7 +37,7 @@ class SimulacraAesthetic(LossInterface):
         predicted_aesthetic_rating = self.model(images)
         return self.multiplier * F.mse_loss(
             predicted_aesthetic_rating,
-            self.aesthetic_target,
+            self.aesthetic_target.view(-1, 1),
         )
 
 
