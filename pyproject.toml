@@ -3,6 +3,8 @@ name = "perceptor"
 version = "0.1.1"
 description = ""
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
+readme = "README.md"
+repository = "https://github.com/samedii/perceptor"
 
 [tool.poetry.dependencies]
 python = "^3.8"
