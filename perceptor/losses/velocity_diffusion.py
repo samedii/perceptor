@@ -9,35 +9,30 @@ from perceptor.models.velocity_diffusion import diffusion_space
 
 
 class VelocityDiffusion(LossInterface):
-    def __init__(self, model, noise):
+    def __init__(self, model, noise, from_ts=0.5, resample_ts=0.3):
         super().__init__()
+        self.from_ts = from_ts
+        self.resample_ts = resample_ts
         self.model = model
         self.noise = nn.Parameter(noise, requires_grad=True)
 
-    def diffuse_denoise(self, denoised, ts, **extra_kwargs):
+    def diffuse_denoise(self, denoised, **extra_kwargs):
         predictions = self.model.predictions(
-            self.model.diffuse(denoised, ts, noise=self.noise),
-            ts,
+            self.model.diffuse(denoised, self.from_ts, noise=self.noise),
+            self.from_ts,
             **extra_kwargs,
         )
         return predictions.denoised_images
 
-    def forward(self, denoised, ts=0.7, **extra_kwargs):
-        if denoised.shape[-3:] != self.model.shape:
-            denoised = transforms.resize(denoised, out_shape=self.model.shape[-2:])
-        with torch.no_grad():
-            predicted_denoised = self.diffuse_denoise(denoised, ts, **extra_kwargs)
-        return F.mse_loss(denoised, predicted_denoised)
+    def forward(self, images, frozen_diffused_denoised):
+        return F.mse_loss(
+            frozen_diffused_denoised.detach().clamp(0, 1),
+            transforms.clamp_with_grad(images),
+        )
 
     @contextmanager
     def guided_resample_(
-        self,
-        denoised,
-        from_ts,
-        to_ts,
-        guidance_scale=0.5,
-        clamp_value=1e-6,
-        **extra_kwargs
+        self, denoised, guidance_scale=0.5, clamp_value=1e-6, **extra_kwargs
     ):
         """
         Resamples noise in direction of the gradient
@@ -47,40 +42,29 @@ class VelocityDiffusion(LossInterface):
             with diffusion.guided_resample_(images) as diffused_denoised:
                 clip(diffused_denoised).backward()
         """
+        if self.noise.grad is not None:
+            self.noise.grad.zero_()
         with torch.enable_grad():
-            from_diffused = self.model.diffuse(denoised, from_ts, noise=self.noise)
-            predictions = self.model.predictions(from_diffused, from_ts, **extra_kwargs)
+            from_diffused = self.model.diffuse(denoised, self.from_ts, noise=self.noise)
+            predictions = self.model.predictions(
+                from_diffused, self.from_ts, **extra_kwargs
+            )
             diffuse_denoise = predictions.denoised_images
             yield diffuse_denoise
         guided_predictions = predictions.guided(
             -self.noise.grad, guidance_scale=guidance_scale, clamp_value=clamp_value
         )
-        # diffused_images = guided_predictions.resample(
-        #     to_ts,
-        #     **extra_kwargs,
-        # )
         self.noise.data = guided_predictions.resample_noise(
-            to_ts,
+            self.resample_ts,
             **extra_kwargs,
         )
         self.noise.grad.zero_()
-        # # hack to make noise std stay around 1
-        # if self.noise.std() <= 0.98:
-        #     self.noise.data += (
-        #         torch.randn_like(self.noise) * (1 - self.noise.std() ** 2).sqrt()
-        #     )
 
     def compensate_noise_(self, from_denoised, to_denoised):
         old_pred = diffusion_space.encode(from_denoised)
         new_pred = diffusion_space.encode(to_denoised)
         delta_pred = new_pred - old_pred
-        self.noise.data = self.noise - delta_pred
-
-        # hack to make noise std stay around 1
-        # if self.noise.std() <= 0.99:
-        #     self.noise.data += (
-        #         torch.randn_like(self.noise) * (1 - self.noise.std() ** 2).sqrt()
-        #     )
+        self.noise.data = self.noise.data - delta_pred.data
 
     def noise_step_(self, from_denoised, from_t, to_t, to_denoised):
         """

@@ -1,8 +1,12 @@
+from typing import TypeVar
 from functools import wraps
 import weakref
 
 
-def cache(model):
+T = TypeVar("T")
+
+
+def cache(model: T) -> T:
     cached = weakref.WeakValueDictionary()
 
     @wraps(model)

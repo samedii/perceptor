@@ -19,7 +19,7 @@ class DeepImagePrior(nn.Module):
         self,
         shape=DEFAULT_SHAPE,
         offset_type="none",
-        n_scales=None,
+        n_scales=2,
         sigmoid=True,
         decorrelate_rgb=True,
         output_channels=3,
@@ -39,8 +39,6 @@ class DeepImagePrior(nn.Module):
         input_channels, height, width = shape
         assert height == width
         assert height % 8 == 0
-        if n_scales is None:
-            n_scales = int(np.log2(height) - np.log2(DEFAULT_SIZE) + 6)
         self.shape = shape
         self.n_scales = n_scales
         self.output_channels = output_channels
@@ -109,12 +107,16 @@ class DeepImagePrior(nn.Module):
 
         fourier_latents = torch.cat(
             [
-                torch.sin(meshgrid[None] * frequencies[:, None, None, None]),
-                torch.cos(meshgrid[None] * frequencies[:, None, None, None]),
+                torch.sin(
+                    meshgrid[None] * frequencies[:, None, None, None] * 2 * np.pi
+                ),
+                torch.cos(
+                    meshgrid[None] * frequencies[:, None, None, None] * 2 * np.pi
+                ),
             ],
             dim=0,
         ).flatten(end_dim=1)[None]
-        return fourier_latents.to(self.device).repeat(size, 1, 1, 1)
+        return fourier_latents.to(self.device).repeat(size, 1, 1, 1).mul(0.3)
 
     def noisy_image_latents(self, images, n_channels=None, log_snr=-1.0):
         if n_channels is None:

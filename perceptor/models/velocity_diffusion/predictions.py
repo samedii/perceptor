@@ -145,16 +145,9 @@ class Predictions(lantern.FunctionalBase):
         """
         Harmonizing resampling from https://github.com/andreas128/RePaint
         """
-        if (torch.as_tensor(self.from_ts) < torch.as_tensor(resample_ts)).any():
-            raise ValueError("from_ts must be greater than resample_ts")
-        resampled_noise_sigma = (
-            self.sigmas(resample_ts) * self.predicted_noise
-            + (
-                self.from_sigmas**2 - self.sigmas(resample_ts) ** 2
-            ).sqrt() * torch.randn_like(self.predicted_noise)
-        )  # fmt: skip
         return diffusion_space.decode(
-            self.denoised_xs * self.from_alphas + resampled_noise_sigma
+            self.denoised_xs * self.from_alphas
+            + self.resample_noise(resample_ts) * self.from_sigmas
         )
 
     def resample_noise(self, resample_ts):

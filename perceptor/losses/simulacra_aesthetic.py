@@ -11,7 +11,16 @@ class SimulacraAesthetic(LossInterface):
         Simulacra aesthetic loss based on clip linear regression probe that predicts the aesthetic rating of an image.
 
         Args:
-            model_name (str): Name of CLIP model. One of "ViT-B/16", "ViT-B/32", or "ViT-L/14".
+            model_name (str): Name of CLIP model. Available models are:
+                - ViT-B/32
+                - ViT-B/16
+                - ViT-L/14
+                - RN50
+                - RN101
+                - RN50x4
+                - RN50x16
+                - RN50x64
+                - ViT-L/14@336px
             aesthetic_target (int): Target asthetic rating of the image (1-10).
         """
         super().__init__()
@@ -19,7 +28,7 @@ class SimulacraAesthetic(LossInterface):
             torch.as_tensor(aesthetic_target).float(), requires_grad=False
         )
         self.model = models.SimulacraAesthetic(model_name)
-        if model_name == "ViT-L/14":
+        if model_name in ("ViT-L/14", "ViT-L/14@336px"):
             self.multiplier = 0.00001
         else:
             self.multiplier = 0.001

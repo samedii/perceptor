@@ -1,3 +1,4 @@
+from .deep_image_prior import DeepImagePrior
 from .diffusion import BruteDiffusion, PseudoLinearSampler
 from .jpeg import JPEG
 from .rudalle import BruteRuDalle
