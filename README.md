@@ -18,9 +18,9 @@ pip install perceptor
 
 - Diffusion models
   - Velocity diffusion (yfcc_2, yfcc_1, cc12m_1_cfg, wikiart)
-  - Latent diffusion (finetuned, text2image, super resolution)
+  - Latent diffusion (finetuned, text2image, super resolution, face)
   - Guided diffusion (openai, pixelart)
-  - k-diffusion (monsters, tinyhero)
+  - Monster diffusion (all, tinyhero)
 - StyleGAN XL
 - RuDALLE
 - Deep image prior

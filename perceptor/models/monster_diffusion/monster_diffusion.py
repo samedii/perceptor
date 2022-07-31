@@ -17,7 +17,7 @@ ALL_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/mo
 TINY_HERO_CHECKPOINT_URL = "https://s3.eu-central-1.wasabisys.com/nextml-model-data/monster-diffusion/f47af8975b744d4bae2b905bac223003.pt"
 
 
-class KDiffusion(nn.Module):
+class MonsterDiffusion(nn.Module):
     def __init__(self, name="all"):
         super().__init__()
         self.network = base.Model(
@@ -361,3 +361,8 @@ class KDiffusion(nn.Module):
         )
         progress.close()
         yield predictions.denoised_images.clamp(0, 1)
+
+
+def test_monster_diffusion():
+    model = MonsterDiffusion().cuda()
+    model.sample(size=1, n_evaluations=4)
