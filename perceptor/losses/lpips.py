@@ -4,7 +4,7 @@ from .interface import LossInterface
 
 
 class LPIPS(LossInterface):
-    def __init__(self, name="squeeze", linear_layers=True):
+    def __init__(self, name="squeeze", linear_layers=True, spatial=False):
         """
         LPIPS loss. Expects images of shape (batch_size, 3, height, width) between 0 and 1.
 
@@ -12,7 +12,9 @@ class LPIPS(LossInterface):
             name (str): name of the loss. Available options: ["alex", "vgg", "squeeze"]
         """
         super().__init__()
-        self.model = lpips.LPIPS(net=name, lpips=linear_layers, verbose=False)
+        self.model = lpips.LPIPS(
+            net=name, lpips=linear_layers, spatial=spatial, verbose=False
+        )
         self.model.eval()
         self.model.requires_grad_(False)
 

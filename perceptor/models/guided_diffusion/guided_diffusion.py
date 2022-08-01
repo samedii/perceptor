@@ -22,21 +22,13 @@ class GuidedDiffusion(nn.Module):
 
             diffusion = models.GuidedDiffusion("pixelart").to(device)
 
-            from_index = 999
-            n_steps = 200
-            indices = torch.linspace(from_index, 0, n_steps).to(device).long()
+            diffused_image = torch.randn((1, 3, 256, 256))
 
-            diffused_image = diffusion.diffuse(
-                init_images,
-                indices[0],
-            )
-
-            for from_index, to_index in zip(
-                indices[:-1], indices[1:]
-            ):
+            for from_index, to_index in model.schedule_indices():
                 eps = diffusion.eps(diffused_image, from_index)
                 denoised_image = diffusion.denoise(diffused_image, from_index, eps)
                 diffused_image = diffusion.step(diffused_image, eps, from_index, to_index)
+            denoised_image = diffusion.denoise(diffused_image, to_index)
         """
         super().__init__()
         self.name = name
@@ -65,6 +57,21 @@ class GuidedDiffusion(nn.Module):
     @property
     def device(self):
         return next(iter(self.parameters())).device
+
+    def schedule_indices(self, from_index=999, to_index=20, n_steps=None):
+        if from_index < to_index:
+            raise ValueError("from_index must be greater than to_index")
+        if n_steps is None:
+            n_steps = (from_index - to_index) // 2
+        schedule_indices = torch.linspace(from_index, to_index, n_steps).long()
+        from_indices = schedule_indices[:-1]
+        to_indices = schedule_indices[1:]
+        if (from_indices == to_indices).any():
+            raise ValueError("Schedule indices must be unique")
+        return zip(from_indices, to_indices)
+
+    def random_diffused(self, shape):
+        return diffusion_space.decode(torch.randn(shape)).to(self.device)
 
     def forward(self, diffused, from_index):
         return self.denoise(diffused, from_index)
@@ -138,7 +145,7 @@ class GuidedDiffusion(nn.Module):
             .to(self.device)[None, None, None, None]
         )
 
-    def step(self, from_diffused, eps, from_index, to_index, noise=None, eta=0.0):
+    def step(self, from_diffused, eps, from_index, to_index, noise=None, eta=1.0):
         if to_index > from_index:
             raise ValueError("to_index must be smaller than from_index")
         if noise is None:
@@ -272,3 +279,16 @@ def create_model(
         resblock_updown=resblock_updown,
         use_new_attention_order=use_new_attention_order,
     )
+
+
+def test_pixelart_diffusion():
+    from perceptor import utils
+
+    model = GuidedDiffusion("pixelart").cuda()
+    diffused = model.random_diffused((1, 3, 256, 256))
+
+    for from_index, to_index in model.schedule_indices(n_steps=50):
+        eps = model.eps(diffused, from_index)
+        diffused = model.step(diffused, eps, from_index, to_index)
+    denoised = model.denoise(diffused, to_index)
+    utils.pil_image(denoised).save("tests/pixelart.png")

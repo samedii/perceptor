@@ -14,6 +14,22 @@ CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 @cache
 class Face(torch.nn.Module):
     def __init__(self, eta=0.0):
+        """
+        Usage:
+            from tqdm import tqdm
+            import perceptor
+
+            model = perceptor.models.latent_diffusion.Face().cuda()
+            diffused_latents = model.random_latents((1, 3, 256, 256)).cuda()
+
+            for from_index, to_index in tqdm(model.schedule_indices(n_steps=50)):
+                denoised_latents = model.denoise(diffused_latents, from_index)
+                diffused_latents = model.step(
+                    diffused_latents, denoised_latents, from_index, to_index
+                )
+            denoised_latents = model.denoise(diffused_latents, to_index)
+            images = model.images(denoised_latents)
+        """
         super().__init__()
         self.eta = eta
 
@@ -42,19 +58,29 @@ class Face(torch.nn.Module):
     def device(self):
         return next(iter(self.parameters())).device
 
+    def schedule_indices(self, from_index=999, to_index=50, n_steps=None):
+        if from_index < to_index:
+            raise ValueError("from_index must be greater than to_index")
+        if n_steps is None:
+            n_steps = (from_index - to_index) // 2
+        schedule_indices = torch.linspace(from_index, to_index, n_steps).long()
+        from_indices = schedule_indices[:-1]
+        to_indices = schedule_indices[1:]
+        if (from_indices == to_indices).any():
+            raise ValueError("Schedule indices must be unique")
+        return zip(from_indices, to_indices)
+
     @staticmethod
     def latent_shape(height, width):
-        return [4, height // 8, width // 8]
+        return [3, height // 4, width // 4]
 
     def forward(self, latents, index):
         return self.velocity(latents, index)
 
-    def velocity(self, latents, index):
-        raise NotImplementedError()
-
     def random_latents(self, images_shape):
         return torch.randn(
-            images_shape[0], *self.latent_shape(*images_shape[-2:]), device=self.device
+            (images_shape[0], *self.latent_shape(*images_shape[-2:])),
+            device=self.device,
         )
 
     def latents(self, images):
@@ -145,3 +171,19 @@ class Face(torch.nn.Module):
 
     def eps(self, latents, index):
         return self.model.apply_model(latents, self.ts(index), cond=None)
+
+
+def test_face():
+    import perceptor
+
+    model = perceptor.models.latent_diffusion.Face().cuda()
+    diffused_latents = model.random_latents((1, 3, 256, 256)).cuda()
+
+    for from_index, to_index in model.schedule_indices(to_index=50, n_steps=50):
+        denoised_latents = model.denoise(diffused_latents, from_index)
+        diffused_latents = model.step(
+            diffused_latents, denoised_latents, from_index, to_index
+        )
+    denoised_latents = model.denoise(diffused_latents, to_index)
+    images = model.images(denoised_latents)
+    perceptor.utils.pil_image(images).save("tests/face.png")
