@@ -51,11 +51,11 @@ class MonsterDiffusion(nn.Module):
     @staticmethod
     def evaluation_ts():
         n_steps = 1000
-        schedule_ts = KDiffusion.schedule_ts(n_steps)
+        schedule_ts = MonsterDiffusion.schedule_ts(n_steps)
         return torch.cat(
             [
                 schedule_ts,
-                KDiffusion.reversed_ts(schedule_ts, n_steps),
+                MonsterDiffusion.reversed_ts(schedule_ts, n_steps),
             ]
         ).unique()
 
@@ -71,7 +71,7 @@ class MonsterDiffusion(nn.Module):
     def random_noise(size):
         return standardize.decode(
             torch.randn(size, *settings.INPUT_SHAPE)
-            * KDiffusion.sigmas(KDiffusion.schedule_ts(100)[:1])
+            * MonsterDiffusion.sigmas(MonsterDiffusion.schedule_ts(100)[:1])
         )
 
     @staticmethod
@@ -89,7 +89,7 @@ class MonsterDiffusion(nn.Module):
 
         assert x0.shape == noise.shape
 
-        return standardize.decode(x0 + noise * KDiffusion.sigmas(ts))
+        return standardize.decode(x0 + noise * MonsterDiffusion.sigmas(ts))
 
     def c_skip(self, ts):
         return diffusion.sigma_data**2 / (
@@ -191,7 +191,7 @@ class MonsterDiffusion(nn.Module):
 
     @staticmethod
     def reversed_ts(ts, n_steps):
-        return ts + KDiffusion.gamma(ts, n_steps) * ts
+        return ts + MonsterDiffusion.gamma(ts, n_steps) * ts
 
     def inject_noise(self, diffused_images, ts, reversed_ts):
         diffused_xs = standardize.encode(diffused_images).to(self.device)
