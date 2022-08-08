@@ -6,7 +6,6 @@ from .velocity_diffusion import VelocityDiffusion
 from .lpips import LPIPS
 from .super_resolution import SuperResolution, SuperResolutionDiscriminator
 from .memorability import Memorability
-from .midas_depth import MidasDepth
 from .open_clip import OpenCLIP
 from .resize import Resize
 from .ruclip import RuCLIP

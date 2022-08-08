@@ -12,8 +12,8 @@ class OpenCLIP(torch.nn.Module):
     def __init__(self, archicture="ViT-B-32", weights="laion2b_e16"):
         """
         Args:
-            archicture: name of the clip model
-            weights: name of the weights
+            archicture (str): name of the clip model
+            weights (str): name of the weights
 
             Available weight/model combinations are (in order of relevance):
             - ("ViT-B-32", "laion2b_e16") (65.62%)

@@ -41,23 +41,15 @@ class MonsterDiffusion(nn.Module):
         random_ts = (diffusion.P_mean + torch.randn(size) * diffusion.P_std).exp()
         return random_ts
 
-    @staticmethod
-    def schedule_ts(n_steps):
-        ramp = torch.linspace(0, 1, n_steps)
+    def _schedule_ts(self, n_steps):
+        ramp = torch.linspace(0, 1, n_steps).to(self.device)
         min_inv_rho = diffusion.sigma_min ** (1 / diffusion.rho)
         max_inv_rho = diffusion.sigma_max ** (1 / diffusion.rho)
         return (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** diffusion.rho
 
-    @staticmethod
-    def evaluation_ts():
-        n_steps = 1000
-        schedule_ts = MonsterDiffusion.schedule_ts(n_steps)
-        return torch.cat(
-            [
-                schedule_ts,
-                MonsterDiffusion.reversed_ts(schedule_ts, n_steps),
-            ]
-        ).unique()
+    def schedule_ts(self, n_steps):
+        schedule_ts = self._schedule_ts(n_steps)
+        return zip(schedule_ts[:-1], schedule_ts[1:])
 
     @staticmethod
     def sigmas(ts):
@@ -70,8 +62,7 @@ class MonsterDiffusion(nn.Module):
     @staticmethod
     def random_noise(size):
         return standardize.decode(
-            torch.randn(size, *settings.INPUT_SHAPE)
-            * MonsterDiffusion.sigmas(MonsterDiffusion.schedule_ts(100)[:1])
+            torch.randn(size, *settings.INPUT_SHAPE) * diffusion.sigma_max
         )
 
     @staticmethod
@@ -147,7 +138,7 @@ class MonsterDiffusion(nn.Module):
         return PredictionBatch(
             denoised_xs=denoised_xs,
             diffused_images=diffused_images,
-            ts=ts,
+            ts=torch.as_tensor(ts).flatten().to(self.device),
         )
 
     def predictions_(
@@ -237,11 +228,12 @@ class MonsterDiffusion(nn.Module):
         )
 
         n_steps = n_evaluations // 2
-        schedule_ts = self.schedule_ts(n_steps)[:, None].repeat(1, size).to(self.device)
         i = 0
         progress = tqdm(total=n_steps, disable=not progress, leave=False)
-        for from_ts, to_ts in zip(schedule_ts[:-1], schedule_ts[1:]):
-            reversed_ts = self.reversed_ts(from_ts, n_steps).clamp(max=schedule_ts[0])
+        for from_ts, to_ts in self.schedule_ts(n_steps):
+            reversed_ts = self.reversed_ts(from_ts, n_steps).clamp(
+                max=diffusion.sigma_max
+            )
             reversed_diffused_images = self.inject_noise(
                 diffused_images, from_ts, reversed_ts
             )
@@ -317,13 +309,11 @@ class MonsterDiffusion(nn.Module):
         diffused_images = diffused_images.to(self.device)
 
         n_steps = n_evaluations
-        schedule_ts = self.schedule_ts(n_steps)[:, None].repeat(1, size).to(self.device)
+        schedule_ts = self._schedule_ts(n_steps)
 
         epses = list()
         progress = tqdm(total=n_steps, disable=not progress, leave=False)
-        for from_index, from_ts, to_ts in zip(
-            range(n_steps), schedule_ts[:-1], schedule_ts[1:]
-        ):
+        for from_index, (from_ts, to_ts) in enumerate(self.schedule_ts(n_steps)):
 
             predictions = self.predictions(
                 diffused_images,
@@ -338,7 +328,7 @@ class MonsterDiffusion(nn.Module):
             coeffs = [
                 self.linear_multistep_coeff(
                     current_order,
-                    self.sigmas(schedule_ts[:, 0]).cpu().flatten(),
+                    self.sigmas(schedule_ts).cpu().flatten(),
                     from_index,
                     to_index,
                 )
@@ -364,5 +354,18 @@ class MonsterDiffusion(nn.Module):
 
 
 def test_monster_diffusion():
+    from perceptor import utils
+
     model = MonsterDiffusion().cuda()
-    model.sample(size=1, n_evaluations=4)
+    for images in model.sample(size=1, n_evaluations=50):
+        pass
+    utils.pil_image(images).save("tests/monster_diffusion.png")
+
+
+def test_monster_diffusion_lms():
+    from perceptor import utils
+
+    model = MonsterDiffusion().cuda()
+    for images in model.linear_multistep_sample(size=1, n_evaluations=50):
+        pass
+    utils.pil_image(images).save("tests/monster_diffusion_lms.png")

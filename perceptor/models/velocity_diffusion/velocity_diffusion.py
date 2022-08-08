@@ -45,13 +45,17 @@ class Model(torch.nn.Module):
         return self.model.shape
 
     @staticmethod
-    def schedule_ts(n_steps, from_sigma=1, to_sigma=1e-2, rho=0.7):
+    def schedule_ts(n_steps=500, from_sigma=1, to_sigma=1e-2, rho=0.7):
         ramp = torch.linspace(0, 1, n_steps + 1)
         min_inv_rho = to_sigma ** (1 / rho)
         max_inv_rho = from_sigma ** (1 / rho)
-        return Model.sigmas_to_ts(
+        schedule_ts = Model.sigmas_to_ts(
             (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
         )
+        return zip(schedule_ts[:-1], schedule_ts[1:])
+
+    def random_diffused(self, shape):
+        return diffusion_space.decode(torch.randn(shape)).to(self.device)
 
     @staticmethod
     def sigmas_to_ts(sigmas):
@@ -143,11 +147,9 @@ def test_velocity_diffusion():
 
     n_iterations = 3
 
-    steps = diffusion.schedule_ts(n_iterations, from_sigma=1.0, rho=0.7)
-
     diffused_images = torch.randn((1, 3, 512, 512)).to(device).add(1).div(2)
 
-    for from_ts, to_ts in zip(steps[:-1], steps[1:]):
+    for from_ts, to_ts in diffusion.schedule_ts(n_iterations, from_sigma=1.0, rho=0.7):
         if (from_ts < 1.0).all():
             new_from_ts = from_ts * 1.003
             diffused_images = diffusion.predictions(

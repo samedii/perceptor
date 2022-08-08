@@ -60,6 +60,10 @@ class PredictionBatch(FunctionalBase):
 
     @staticmethod
     def sigmas(ts):
+        if isinstance(ts, float):
+            ts = torch.as_tensor(ts)
+        if ts.ndim == 0:
+            return torch.full((1,), ts).to(ts.device)
         return ts[:, None, None, None]
 
     @staticmethod
