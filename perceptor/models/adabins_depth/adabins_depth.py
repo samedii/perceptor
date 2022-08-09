@@ -38,7 +38,7 @@ class AdaBinsDepth(nn.Module):
         if image_area > MAX_ADABINS_AREA:
             scale = np.sqrt(MAX_ADABINS_AREA) / np.sqrt(image_area)
             images = transforms.resize(
-                images, out_shape=(int(w * scale), int(h * scale)), resample="lancsoz2"
+                images, out_shape=(int(w * scale), int(h * scale)), resample="lancsoz3"
             )
         elif image_area < MIN_ADABINS_AREA:
             scale = np.sqrt(MIN_ADABINS_AREA) / np.sqrt(image_area)

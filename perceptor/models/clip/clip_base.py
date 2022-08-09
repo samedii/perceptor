@@ -57,7 +57,6 @@ class CLIP_Base(torch.nn.Module):
             imgs = resize(
                 imgs,
                 out_shape=(self.input_resolution, self.input_resolution),
-                resample="bilinear",
             )
             imgs = self.preprocess(imgs, input_range=None)
         img_embeddings = self.model.encode_image(imgs)

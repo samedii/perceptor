@@ -35,7 +35,7 @@ def resize(
     input,
     scale_factors: float = None,
     out_shape: Tuple[int, int] = None,
-    resample="cubic",
+    resample: Optional[str] = None,
     support_sz: Optional[int] = None,
     antialiasing: bool = True,
     by_convs: bool = False,
@@ -59,6 +59,8 @@ def resize(
         resample:
         The type of interpolation used to calculate the weights. this is a scalar to scalar function that can be applied to tensors pointwise. The classical methods are implemented and can be found in interpolation_methods.py. (cubic, linear, laczos2, lanczos3, box).
 
+        If not specified, then bicubic is used for upsampling and laczos2 for downsampling.
+
         support_sz:
         This is the support of the interpolation function, i.e length of non-zero segment over its 1d input domain. this is a characteristic of the function. eg. for bicubic 4, linear 2, laczos2 4, lanczos3 6, box 1.
 
@@ -73,8 +75,6 @@ def resize(
 
         pad_mode: This can be used according to the padding methods of each framework. PyTorch: 'constant', 'reflect', 'replicate', 'circular'. Numpy: 'constant', 'edge', 'linear_ramp', 'maximum', 'mean, 'median', 'minimum', 'reflect', 'symmetric', 'wrap', 'empty'
     """
-
-    interp_method = interpolation_methods.methods[resample]
 
     # get properties of the input tensor
     in_shape, n_dims = input.shape, input.ndim
@@ -98,6 +98,16 @@ def resize(
         eps,
         fw,
     )
+
+    if resample is None:
+        original_height, original_width = input.shape[-2:]
+        new_height, new_width = out_shape[-2:]
+        if original_height >= new_height and original_width >= new_width:
+            resample = "lanczos3"
+        else:
+            resample = "bicubic"
+
+    interp_method = interpolation_methods.methods[resample]
 
     # sort indices of dimensions according to scale of each dimension.
     # since we are going dim by dim this is efficient

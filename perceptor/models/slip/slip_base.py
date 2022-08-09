@@ -96,7 +96,6 @@ class SLIP_Base(torch.nn.Module):
             imgs = resize(
                 imgs,
                 out_shape=(self.input_resolution, self.input_resolution),
-                resample="bilinear",
             )
             imgs = self.preprocess(imgs, input_range=input_range)
         image_features = self.model.encode_image(imgs)
