@@ -60,14 +60,16 @@ class OWLViT(LossInterface):
             raise ValueError("OWLViT can only have one set of encodings")
         return self
 
-    def forward(self, images):
+    def forward(self, images, top_k=5):
         predictions = self.model(images, self.encodings)
         loss = torch.tensor(0.0, device=self.device)
         for label_index, weight in enumerate(self.weights):
-            loss += (
-                -predictions.logits[:, :, label_index].flatten(start_dim=1)
-                # .softmax(dim=1)
-                .max(dim=0)[0].mean()
+            loss -= (
+                predictions.logits[:, :, label_index]
+                .flatten(start_dim=1)
+                .log_softmax(dim=1)
+                .sort(dim=1)[0][:, -top_k:]
+                .mean()
                 * weight
             )
 
