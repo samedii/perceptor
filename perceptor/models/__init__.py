@@ -7,6 +7,7 @@ from .guided_diffusion import GuidedDiffusion
 from . import latent_diffusion
 from .midas_depth import MidasDepth
 from .monster_diffusion import MonsterDiffusion
+from .owlvit import OWLViT
 from .ruclip import RuCLIP
 from .slip import SLIP
 from .stylegan_xl import StyleGANXL
