@@ -68,7 +68,7 @@ class GuidedDiffusion(nn.Module):
         to_indices = schedule_indices[1:]
         if (from_indices == to_indices).any():
             raise ValueError("Schedule indices must be unique")
-        return zip(from_indices, to_indices)
+        return torch.stack([from_indices, to_indices], dim=1)
 
     def random_diffused(self, shape):
         return diffusion_space.decode(torch.randn(shape)).to(self.device)
@@ -292,3 +292,16 @@ def test_pixelart_diffusion():
         diffused = model.step(diffused, eps, from_index, to_index)
     denoised = model.denoise(diffused, to_index)
     utils.pil_image(denoised).save("tests/pixelart.png")
+
+
+def test_guided_diffusion_diffusion():
+    from perceptor import utils
+
+    model = GuidedDiffusion("standard").cuda()
+    diffused = model.random_diffused((1, 3, 512, 512))
+
+    for from_index, to_index in model.schedule_indices(n_steps=50):
+        eps = model.eps(diffused, from_index)
+        diffused = model.step(diffused, eps, from_index, to_index)
+    denoised = model.denoise(diffused, to_index)
+    utils.pil_image(denoised).save("tests/guided_diffusion.png")

@@ -7,6 +7,7 @@ from .lpips import LPIPS
 from .super_resolution import SuperResolution, SuperResolutionDiscriminator
 from .memorability import Memorability
 from .open_clip import OpenCLIP
+from .owlvit import OWLViT
 from .resize import Resize
 from .ruclip import RuCLIP
 from .simulacra_aesthetic import SimulacraAesthetic

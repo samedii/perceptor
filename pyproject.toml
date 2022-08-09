@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "perceptor"
-version = "0.5.0"
+version = "0.5.1"
 description = ""
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 readme = "README.md"

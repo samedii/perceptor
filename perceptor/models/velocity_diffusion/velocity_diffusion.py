@@ -52,7 +52,7 @@ class Model(torch.nn.Module):
         schedule_ts = Model.sigmas_to_ts(
             (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
         )
-        return zip(schedule_ts[:-1], schedule_ts[1:])
+        return torch.stack([schedule_ts[:-1], schedule_ts[1:]], dim=1)
 
     def random_diffused(self, shape):
         return diffusion_space.decode(torch.randn(shape)).to(self.device)
@@ -140,16 +140,17 @@ VelocityDiffusion: Model = cache(Model)
 
 
 def test_velocity_diffusion():
+    from perceptor import utils
+
     torch.set_grad_enabled(False)
     device = torch.device("cuda")
 
     diffusion = models.VelocityDiffusion("yfcc_2").to(device)
 
-    n_iterations = 3
+    # diffused_images = torch.randn((1, 3, 512, 512)).to(device).add(1).div(2)
+    diffused_images = diffusion.random_diffused((1, 3, 512, 512)).to(device)
 
-    diffused_images = torch.randn((1, 3, 512, 512)).to(device).add(1).div(2)
-
-    for from_ts, to_ts in diffusion.schedule_ts(n_iterations, from_sigma=1.0, rho=0.7):
+    for from_ts, to_ts in diffusion.schedule_ts(n_steps=50):
         if (from_ts < 1.0).all():
             new_from_ts = from_ts * 1.003
             diffused_images = diffusion.predictions(
@@ -168,16 +169,27 @@ def test_velocity_diffusion():
             .step(to_ts)
         )
 
+    utils.pil_image(diffusion.predictions(diffused_images, to_ts).denoised_images).save(
+        "tests/velocity_diffusion_yfcc_2.png"
+    )
+
 
 def test_conditioned_velocity_diffusion():
+    from perceptor import utils
+
     torch.set_grad_enabled(False)
     device = torch.device("cuda")
 
-    diffusion = models.VelocityDiffusion("cc12m_1_cfg").to(device)
+    diffusion = VelocityDiffusion("cc12m_1_cfg").to(device)
 
-    diffused_images = torch.randn((1, 3, 256, 256)).to(device).add(1).div(2)
+    diffused_images = diffusion.random_diffused((1, 3, 256, 256)).to(device)
 
-    conditioning = diffusion.conditioning(texts=["hello world"])
-    from_ts = 1.0
+    conditioning = diffusion.conditioning(texts=["photo of a cute cat"])
 
-    diffused_images = diffusion.predictions(diffused_images, from_ts, conditioning)
+    for from_ts, to_ts in diffusion.schedule_ts(n_steps=50):
+        predictions = diffusion.predictions(diffused_images, from_ts, conditioning)
+        diffused_images = predictions.step(to_ts)
+
+    utils.pil_image(
+        diffusion.predictions(diffused_images, to_ts, conditioning).denoised_images
+    ).save("tests/velocity_diffusion_cc12m_1.png")

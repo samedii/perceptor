@@ -26,17 +26,19 @@ pip install perceptor
 - Deep image prior
 - Super resolution
 - Losses
+  - Text-image similarity
+    - BLIP
+    - CLIP
+    - CLOOB
+    - Glide CLIP
+    - OpenCLIP
+    - OWL-ViT
+    - RuCLIP
+    - SLIP
   - Aesthetic visual assessment loss
-  - BLIP
-  - CLIP
-  - CLOOB
   - LPIPS loss
-  - Glide CLIP
   - Memorability loss
   - Midas depth
-  - OpenCLIP
-  - RuCLIP
   - Simulacra aesthetic loss
-  - SLIP
   - Smoothness loss
   - Style transfer loss

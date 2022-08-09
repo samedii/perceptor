@@ -120,7 +120,7 @@ class FinetunedText2Image(torch.nn.Module):
         to_indices = schedule_indices[1:]
         if (from_indices == to_indices).any():
             raise ValueError("Schedule indices must be unique")
-        return zip(from_indices, to_indices)
+        return torch.stack([from_indices, to_indices], dim=1)
 
     @staticmethod
     def latent_shape(height, width):
