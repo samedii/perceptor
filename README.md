@@ -14,31 +14,54 @@ Or, for the old timers:
 pip install perceptor
 ```
 
-## Features
+## API
 
-- Diffusion models
-  - Velocity diffusion (yfcc_2, yfcc_1, cc12m_1_cfg, wikiart)
-  - Latent diffusion (finetuned, text2image, super resolution, face)
-  - Guided diffusion (openai, pixelart)
-  - Monster diffusion (all, tinyhero)
-- StyleGAN XL
-- RuDALLE
-- Deep image prior
-- Super resolution
-- Losses
-  - Text-image similarity
-    - BLIP
-    - CLIP
-    - CLOOB
-    - Glide CLIP
-    - OpenCLIP
-    - OWL-ViT
-    - RuCLIP
-    - SLIP
-  - Aesthetic visual assessment loss
-  - LPIPS loss
-  - Memorability loss
-  - Midas depth
-  - Simulacra aesthetic loss
-  - Smoothness loss
-  - Style transfer loss
+Shortlist of available features.
+
+```python
+perceptor
+  .drawers
+    .BruteDiffusion
+    .JPEG
+    .Raw
+    .RuDALLE
+    .DeepImagePrior
+    .StyleGANXL
+  .models
+    .VelocityDiffusion (yfcc_2, yfcc_1, cc12m_1_cfg, wikiart)
+    .ldm (latent diffusion)
+      .FinetunedText2Image
+      .Text2Image
+      .Face
+      .SuperResolution
+    .GuidedDiffusion (openai, pixelart)
+    .MonsterDiffusion (all, tinyhero)
+    .StyleGANXL
+    .RuDALLE
+    .DeepImagePrior
+    .SuperResolution
+  .losses
+    # Text-image similarity
+    .BLIP
+    .CLIP
+    .CLOOB
+    .GlideCLIP
+    .OpenCLIP
+    .OWLViT
+    .RuCLIP
+    .SLIP
+    # Other
+    .AestheticVisualAssessment
+    .LPIPS
+    .Memorability
+    .MidasDepth
+    .SimulacraAesthetic
+    .Smoothness
+    .StyleTransfer
+  .transforms
+    .clamp_with_grad
+    .resize
+    .SuperResolution
+  .utils
+    .gradient_checkpoint
+```
