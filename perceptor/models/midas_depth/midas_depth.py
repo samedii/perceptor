@@ -1,12 +1,11 @@
 """
 MiDaS model from https://github.com/isl-org/MiDaS and
-inference impementation from https://github.com/alembics/disco-diffusion/blob/main/disco.py
+
+Inference impementation from https://github.com/alembics/disco-diffusion/blob/main/disco.py
 """
-from multiprocessing.sharedctypes import Value
-import cv2
+from lantern import Tensor
 import torch
 from torch import nn
-import torch.nn.functional as F
 import torchvision.transforms as T
 from basicsr.utils.download_util import load_file_from_url
 
@@ -120,10 +119,44 @@ class MidasDepth(nn.Module):
         return super().to(device)
 
     @torch.cuda.amp.autocast()
-    def forward(self, images):
+    def forward(self, images: Tensor.dims("NCHW")) -> Tensor.dims("NCHW"):
         if images.shape[-2:] != self.image_size:
             images = transforms.resize(
                 images,
                 out_shape=self.image_size,
             )
-        return self.model(self.normalization(images)).float()
+        return -self.model(self.normalization(images)).float()
+
+
+def test_midas_depth():
+    import requests
+    from PIL import Image
+    import torch
+    import torchvision.transforms.functional as TF
+
+    image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+    images = (
+        TF.to_tensor(Image.open(requests.get(image_url, stream=True).raw))[None]
+        .cuda()
+        .requires_grad_()
+    )
+
+    model = MidasDepth().cuda()
+
+    with torch.enable_grad():
+        depths = model(images)
+        depths.mean().backward()
+
+    assert images.grad is not None
+
+    depths = transforms.resize(depths, out_shape=images.shape[-2:])
+
+    utils.pil_image(
+        torch.cat(
+            [
+                images,
+                (depths.repeat(1, 3, 1, 1) - depths.min())
+                / (depths.max() - depths.min()),
+            ]
+        )
+    ).save("tests/midas_depth.png")

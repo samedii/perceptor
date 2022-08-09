@@ -81,7 +81,7 @@ methods = dict(
     bicubic=cubic,
     linear=linear,
     bilinear=linear,
-    laczos2=lanczos2,
+    lanczos2=lanczos2,
     lanczos3=lanczos3,
     box=box,
 )
