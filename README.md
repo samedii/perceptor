@@ -22,12 +22,14 @@ Shortlist of available features.
 perceptor
   .drawers
     .BruteDiffusion
+    .DeepImagePrior
     .JPEG
     .Raw
     .RuDALLE
-    .DeepImagePrior
     .StyleGANXL
   .models
+    .AdaBinsDepth
+    .DeepImagePrior
     .VelocityDiffusion (yfcc_2, yfcc_1, cc12m_1_cfg, wikiart)
     .ldm (latent diffusion)
       .FinetunedText2Image
@@ -35,10 +37,10 @@ perceptor
       .Face
       .SuperResolution
     .GuidedDiffusion (openai, pixelart)
+    .MidasDepth
     .MonsterDiffusion (all, tinyhero)
     .StyleGANXL
     .RuDALLE
-    .DeepImagePrior
     .SuperResolution
   .losses
     # Text-image similarity

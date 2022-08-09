@@ -1,3 +1,4 @@
+from .adabins_depth import AdaBinsDepth
 from .blip import BLIP
 from .clip import CLIP
 from .cloob import CLOOB
