@@ -8,10 +8,10 @@ class GradientCheckpoint(FunctionalBase):
     def __init__(self, tensor):
         super().__init__(original=tensor, detached=tensor.detach().requires_grad_())
 
-    def continue_backward(self):
+    def continue_backward(self, retain_graph=False):
         if self.grad is None:
             raise ValueError("Gradient is not defined")
-        return self.original.backward(self.detached.grad)
+        return self.original.backward(self.detached.grad, retain_graph=retain_graph)
 
     @property
     def grad(self):

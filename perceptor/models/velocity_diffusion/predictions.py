@@ -184,15 +184,17 @@ class Predictions(lantern.FunctionalBase):
         Thresholding heuristic from imagen paper
         """
         dynamic_threshold = torch.quantile(
-            self.denoised_xs.flatten(start_dim=1).mul(2).sub(1).abs(), quantile, dim=1
+            self.denoised_xs.flatten(start_dim=1).abs(), quantile, dim=1
         ).clamp(min=1.0)
-        denoised_xs = clamp_with_grad(
-            self.denoised_xs,
-            -dynamic_threshold,
-            dynamic_threshold,
+        denoised_xs = (
+            clamp_with_grad(
+                self.denoised_xs,
+                -dynamic_threshold,
+                dynamic_threshold,
+            )
+            # / dynamic_threshold
+            # imagen's dynamic thresholding divides by threshold but this makes the images gray
         )
-        # note: imagen dynamic thresholding is dividing by dynamic_threshold
-        # but this makes everything gray
         return self.forced_denoised(diffusion_space.decode(denoised_xs))
 
     def static_threshold(self):
@@ -206,6 +208,18 @@ class Predictions(lantern.FunctionalBase):
             ) / self.from_sigmas
         else:
             predicted_noise = self.predicted_noise
+        return self.replace(
+            velocities=self.from_alphas * predicted_noise
+            - self.from_sigmas * denoised_xs
+        )
+
+    def forced_predicted_noise(self, predicted_noise) -> "Predictions":
+        if (self.from_alphas >= 1e-3).all():
+            denoised_xs = (
+                self.from_diffused_xs - predicted_noise * self.from_sigmas
+            ) / self.from_alphas
+        else:
+            denoised_xs = self.denoised_xs
         return self.replace(
             velocities=self.from_alphas * predicted_noise
             - self.from_sigmas * denoised_xs

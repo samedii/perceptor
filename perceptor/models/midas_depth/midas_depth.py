@@ -125,7 +125,7 @@ class MidasDepth(nn.Module):
                 images,
                 out_shape=self.image_size,
             )
-        return -self.model(self.normalization(images)).float()
+        return -self.model(self.normalization(images)).float()[:, None]
 
 
 def test_midas_depth():
@@ -145,6 +145,7 @@ def test_midas_depth():
 
     with torch.enable_grad():
         depths = model(images)
+        assert len(depths.shape) == 4
         depths.mean().backward()
 
     assert images.grad is not None

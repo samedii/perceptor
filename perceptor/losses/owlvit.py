@@ -24,7 +24,10 @@ class OWLViT(LossInterface):
         return next(iter(self.model.parameters())).device
 
     def to(self, device):
-        self.encodings.to(device)
+        if self.encodings is not None:
+            self.encodings.to(device)
+        if self.weights is not None:
+            self.weights.to(device)
         return super().to(device)
 
     def cuda(self):

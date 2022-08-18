@@ -45,7 +45,9 @@ class Model(torch.nn.Module):
         return self.model.shape
 
     @staticmethod
-    def schedule_ts(n_steps=500, from_sigma=1, to_sigma=1e-2, rho=0.7):
+    def schedule_ts(n_steps=500, from_ts=1, to_ts=1e-2, rho=0.7):
+        from_sigma = Model.sigmas(from_ts).squeeze().item()
+        to_sigma = Model.sigmas(to_ts).squeeze().item()
         ramp = torch.linspace(0, 1, n_steps + 1)
         min_inv_rho = to_sigma ** (1 / rho)
         max_inv_rho = from_sigma ** (1 / rho)

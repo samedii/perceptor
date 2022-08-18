@@ -23,7 +23,8 @@ class ClampWithGradFunction(torch.autograd.Function):
         )
 
 
-clamp_with_grad = ClampWithGradFunction.apply
+def clamp_with_grad(tensor, min=0.0, max=1.0):
+    return ClampWithGradFunction.apply(tensor, min, max)
 
 
 class ClampWithGrad(TransformInterface):
@@ -33,7 +34,7 @@ class ClampWithGrad(TransformInterface):
         self.max = max
 
     def encode(self, tensor):
-        return clamp_with_grad(tensor)
+        return clamp_with_grad(tensor, self.min, self.max)
 
     def decode(self, tensor):
         return tensor
