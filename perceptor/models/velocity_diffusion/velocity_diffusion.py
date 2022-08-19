@@ -64,7 +64,7 @@ class Model(torch.nn.Module):
     @staticmethod
     def sigmas_to_ts(sigmas):
         sigmas = torch.as_tensor(sigmas)
-        return utils.alpha_sigma_to_t(1 - sigmas, sigmas)
+        return utils.sigma_to_t(sigmas)
 
     def alphas(self, ts):
         if isinstance(ts, float):
@@ -197,3 +197,25 @@ def test_conditioned_velocity_diffusion():
     utils.pil_image(
         diffusion.predictions(diffused_images, to_ts, conditioning).denoised_images
     ).save("tests/velocity_diffusion_cc12m_1.png")
+
+
+def test_convert_sigma_ts():
+    diffusion = VelocityDiffusion("cc12m_1_cfg")
+    from_ts = 0.3
+    assert from_ts == diffusion.sigmas_to_ts(diffusion.sigmas(from_ts))
+
+
+def test_schedule_ts():
+    diffusion = VelocityDiffusion("cc12m_1_cfg")
+    from_ts = 0.5
+    assert torch.allclose(
+        diffusion.schedule_ts(n_steps=50, from_ts=from_ts)[0, 0],
+        torch.as_tensor(from_ts),
+    )
+
+
+def test_utils():
+    t = torch.as_tensor(0.3)
+    alpha, sigma = utils.t_to_alpha_sigma(t)
+    assert torch.allclose(utils.sigma_to_t(sigma), t)
+    assert t == utils.alpha_sigma_to_t(alpha, sigma)

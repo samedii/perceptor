@@ -45,6 +45,10 @@ def alpha_sigma_to_t(alpha, sigma):
     return torch.atan2(sigma, alpha) / math.pi * 2
 
 
+def sigma_to_t(sigma):
+    return torch.asin(sigma) / math.pi * 2
+
+
 def get_ddpm_schedule(ddpm_t):
     """Returns timesteps for the noise schedule from the DDPM paper."""
     log_snr = -torch.special.expm1(1e-4 + 10 * ddpm_t**2).log()
