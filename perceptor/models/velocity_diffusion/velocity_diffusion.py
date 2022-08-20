@@ -45,17 +45,23 @@ class Model(torch.nn.Module):
         return self.model.shape
 
     @staticmethod
-    def schedule_ts(n_steps=500, from_ts=1, to_ts=1e-2, rho=0.7):
-        _, from_sigma = utils.t_to_alpha_sigma(torch.as_tensor(from_ts))
-        _, to_sigma = utils.t_to_alpha_sigma(torch.as_tensor(to_ts))
-        from_sigma = from_sigma.squeeze().item()
-        to_sigma = to_sigma.squeeze().item()
+    def schedule_ts(n_steps=500, from_ts=1.0, to_ts=1e-2, rho=7.0):
+        from_alpha, from_sigma = utils.t_to_alpha_sigma(torch.as_tensor(from_ts))
+        to_alpha, to_sigma = utils.t_to_alpha_sigma(torch.as_tensor(to_ts))
+
+        from_log_snr = utils.alpha_sigma_to_log_snr(from_alpha, from_sigma)
+        to_log_snr = utils.alpha_sigma_to_log_snr(to_alpha, to_sigma)
+
+        elucidated_from_sigma = (1 / from_log_snr.exp()).sqrt().clamp(max=150)
+        elucidated_to_sigma = (1 / to_log_snr.exp()).sqrt().clamp(min=1e-3)
+
         ramp = torch.linspace(0, 1, n_steps + 1)
-        min_inv_rho = to_sigma ** (1 / rho)
-        max_inv_rho = from_sigma ** (1 / rho)
-        schedule_ts = Model.sigmas_to_ts(
-            (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
-        )
+        min_inv_rho = elucidated_to_sigma ** (1 / rho)
+        max_inv_rho = elucidated_from_sigma ** (1 / rho)
+        sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
+        log_snr = utils.alpha_sigma_to_log_snr(torch.ones_like(sigmas), sigmas)
+        alpha, sigma = utils.log_snr_to_alpha_sigma(log_snr)
+        schedule_ts = utils.alpha_sigma_to_t(alpha, sigma)
         return torch.stack([schedule_ts[:-1], schedule_ts[1:]], dim=1)
 
     def random_diffused(self, shape):
@@ -151,7 +157,6 @@ def test_velocity_diffusion():
 
     diffusion = models.VelocityDiffusion("yfcc_2").to(device)
 
-    # diffused_images = torch.randn((1, 3, 512, 512)).to(device).add(1).div(2)
     diffused_images = diffusion.random_diffused((1, 3, 512, 512)).to(device)
 
     for from_ts, to_ts in diffusion.schedule_ts(n_steps=50):
@@ -207,14 +212,14 @@ def test_convert_sigma_ts():
 
 def test_schedule_ts():
     diffusion = VelocityDiffusion("cc12m_1_cfg")
-    from_ts = 0.5
+    from_ts = 0.6
     assert torch.allclose(
         diffusion.schedule_ts(n_steps=50, from_ts=from_ts)[0, 0],
         torch.as_tensor(from_ts),
     )
 
 
-def test_utils():
+def test_utils_conversion():
     t = torch.as_tensor(0.3)
     alpha, sigma = utils.t_to_alpha_sigma(t)
     assert torch.allclose(utils.sigma_to_t(sigma), t)
