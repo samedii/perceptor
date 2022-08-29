@@ -2,9 +2,9 @@ from typing import Optional
 from contextlib import contextmanager
 import torch
 import lantern
+from transformers import CLIPTokenizer, CLIPTextModel, logging
 from diffusers import StableDiffusionPipeline, DDPMScheduler
 
-from perceptor import models
 from perceptor.utils import cache
 from . import diffusion_space
 from .predictions import Predictions
@@ -33,8 +33,6 @@ class Model(torch.nn.Module):
         )
 
         self.vae = pipeline.vae
-        self.text_encoder = pipeline.text_encoder
-        self.tokenizer = pipeline.tokenizer
         self.unet = pipeline.unet
         self.feature_extractor = pipeline.feature_extractor
         self.scheduler = pipeline.scheduler
@@ -52,8 +50,6 @@ class Model(torch.nn.Module):
         ]
         self.vae.eval()
         self.vae.requires_grad_(False)
-        self.text_encoder.eval()
-        self.text_encoder.requires_grad_(False)
         self.unet.eval()
         self.unet.requires_grad_(False)
 
@@ -205,37 +201,30 @@ class Model(torch.nn.Module):
     def predictions(self, diffused_latents, ts, conditioning=None):
         return self.forward(diffused_latents, ts, conditioning)
 
-    # def conditioning(self, texts=None, images=None, encodings=None):
-    #     clip_model = models.CLIP(self.model.clip_model)
-
-    #     all_encodings = list()
-    #     if texts is not None:
-    #         all_encodings.append(clip_model.encode_texts(texts))
-    #     if images is not None:
-    #         all_encodings.append(clip_model.encode_images(images))
-    #     if encodings is not None:
-    #         all_encodings.append(encodings)
-    #     if len(all_encodings) == 0:
-    #         raise ValueError("Must provide at least one of texts, images, or encodings")
-    #     return torch.stack(all_encodings, dim=0).mean(dim=0)[None]
-
-    # def conditioning(self, texts=None):
-    #     clip_model = models.CLIP(self.model.clip_model)
-    #     return Conditioning(text_encodings=clip_model.encode_texts(texts))
-
-    def conditioning(self, texts=[""]):
+    def conditioning(self, texts=None, images=None, encodings=None):
         """
         Create a conditioning object from a list of texts. Unconditional is an empty string.
         """
-        tokenized_text = self.tokenizer(
+        if texts is None and images is None and encodings is None:
+            texts = [""]
+
+        verbosity = logging.get_verbosity()
+        logging.set_verbosity_error()
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+        text_encoder = CLIPTextModel.from_pretrained(
+            "openai/clip-vit-large-patch14"
+        ).to(self.device)
+        logging.set_verbosity(verbosity)
+
+        tokenized_text = tokenizer(
             texts,
             padding="max_length",
-            max_length=self.tokenizer.model_max_length,
+            max_length=tokenizer.model_max_length,
             truncation=True,
             return_tensors="pt",
         )
-        text_encodings = self.text_encoder(tokenized_text.input_ids.to(self.device))[0]
-        return Conditioning(encodings=text_encodings).to(self.device)
+        text_encodings = text_encoder(tokenized_text.input_ids.to(self.device))[0]
+        return Conditioning(encodings=text_encodings)
 
     def diffuse_latents(self, denoised_latents, indices, noise=None):
         indices = self.indices(indices)
@@ -301,6 +290,10 @@ def test_stable_diffusion_step():
         tokenized_text.input_ids.to(pipeline.device)
     )[0]
 
+    assert text_embeddings.shape == conditioning.encodings.shape
+    assert torch.allclose(
+        text_embeddings[0, 0], conditioning.encodings[0, 0], atol=1e-3
+    )
     assert torch.allclose(text_embeddings, conditioning.encodings, atol=1e-3)
 
     index = next(iter(pipeline.scheduler.timesteps))
