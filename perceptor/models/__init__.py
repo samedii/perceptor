@@ -11,6 +11,7 @@ from .monster_diffusion import MonsterDiffusion
 from .owlvit import OWLViT
 from .ruclip import RuCLIP
 from .slip import SLIP
+from .stable_diffusion import StableDiffusion
 from .stylegan_xl import StyleGANXL
 from .super_resolution import SuperResolution
 from .velocity_diffusion import VelocityDiffusion
