@@ -12,8 +12,9 @@ from .conditioning import Conditioning
 
 
 class Model(torch.nn.Module):
-    def __init__(self, name="CompVis/stable-diffusion-v1-4", auth_token=True):
-        # TODO: fp16
+    def __init__(
+        self, name="CompVis/stable-diffusion-v1-4", fp16=False, auth_token=True
+    ):
         """
         Args:
             name: The name of the model. Available models are:
@@ -28,8 +29,17 @@ class Model(torch.nn.Module):
         scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear"
         )
+
         pipeline = StableDiffusionPipeline.from_pretrained(
-            name, scheduler=scheduler, use_auth_token=auth_token
+            name,
+            scheduler=scheduler,
+            use_auth_token=auth_token,
+            **dict(
+                revision="fp16",
+                torch_dtype=torch.float16,
+            )
+            if fp16
+            else dict(),
         )
 
         self.vae = pipeline.vae
@@ -134,15 +144,17 @@ class Model(torch.nn.Module):
             self.vae.load_state_dict(state_dict)
             self.vae.requires_grad_(False)
 
+    @torch.cuda.amp.autocast()
     def latents(
         self, images: lantern.Tensor.dims("NCHW").float()
     ) -> lantern.Tensor.dims("NCHW"):
-        return self.encode(images)
+        return self.encode(images).float()
 
+    @torch.cuda.amp.autocast()
     def images(
         self, latents: lantern.Tensor.dims("NCHW").float()
     ) -> lantern.Tensor.dims("NCHW"):
-        return self.decode(latents)
+        return self.decode(latents).float()
 
     def random_diffused_latents(self, shape):
         n, c, h, w = shape
