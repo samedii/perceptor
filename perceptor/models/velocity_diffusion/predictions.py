@@ -104,21 +104,6 @@ class Predictions(lantern.FunctionalBase):
         return diffusion_space.decode(to_diffused_xs)
 
     def correction(self, previous: "Predictions"):
-        # k-diffusion has alphas=1 always so this should not work
-        # corrected_diffused_xs = (
-        #     previous.from_diffused_xs
-        #     + (self.from_sigmas - previous.from_sigmas) * (self.eps - previous.eps) / 2
-        # )
-        # return diffusion_space.decode(corrected_diffused_xs)
-
-        # blurry
-        # return Predictions(
-        #     from_diffused_images=previous.from_diffused_images,
-        #     from_ts=previous.from_ts,
-        #     velocities=(self.velocities + previous.velocities) / 2,
-        # )
-
-        # looks ok but no apparent difference from double budget
         return previous.forced_denoised(
             (self.denoised_images + previous.denoised_images) / 2
         )
@@ -127,28 +112,8 @@ class Predictions(lantern.FunctionalBase):
         if (torch.as_tensor(self.from_ts) > torch.as_tensor(to_ts)).any():
             raise ValueError("from_ts must be less than to_ts")
 
-        # replaced_noise_sigma = (
-        #     self.sigmas(to_t) ** 2 - self.sigmas(from_t) ** 2
-        # ).sqrt()
-        # to_eps = (
-        #     from_eps * self.sigmas(from_t)
-        #     + torch.randn_like(from_eps) * replaced_noise_sigma
-        # ) / self.sigmas(to_t)
-        # to_eps = eps
-        # to_diffused = self.diffuse(from_denoised, to_t, noise=to_eps)
-        # return to_diffused
-
         to_alphas, to_sigmas = self.alphas(to_ts), self.sigmas(to_ts)
         return self.denoised_xs * to_alphas + self.predicted_noise * to_sigmas
-
-    def resample(self, resample_ts):
-        """
-        Harmonizing resampling from https://github.com/andreas128/RePaint
-        """
-        return diffusion_space.decode(
-            self.denoised_xs * self.from_alphas
-            + self.resample_noise(resample_ts) * self.from_sigmas
-        )
 
     def resample_noise(self, resample_ts):
         if (torch.as_tensor(self.from_ts) < torch.as_tensor(resample_ts)).any():
@@ -160,6 +125,15 @@ class Predictions(lantern.FunctionalBase):
             ).sqrt() * torch.randn_like(self.predicted_noise)
         )  # fmt: skip
         return resampled_noise_sigma / self.from_sigmas
+
+    def resample(self, resample_ts):
+        """
+        Harmonizing resampling from https://github.com/andreas128/RePaint
+        """
+        return diffusion_space.decode(
+            self.denoised_xs * self.from_alphas
+            + self.resample_noise(resample_ts) * self.from_sigmas
+        )
 
     def noisy_reverse_step(self, to_ts):
         to_alphas, to_sigmas = self.alphas(to_ts), self.sigmas(to_ts)

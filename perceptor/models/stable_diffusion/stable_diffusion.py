@@ -1,5 +1,6 @@
 from typing import Optional
 from contextlib import contextmanager
+import copy
 import torch
 import lantern
 from transformers import CLIPTokenizer, CLIPTextModel, logging
@@ -133,7 +134,7 @@ class Model(torch.nn.Module):
         with diffusion_model.finetuneable_vae():
             images = diffusion_model.decode(latents)
         """
-        state_dict = self.vae.state_dict()
+        state_dict = copy.deepcopy(self.vae.state_dict())
         try:
             for parameter, requires_grad in zip(
                 self.vae.parameters(), self.vae_original_requires_grads

@@ -44,9 +44,6 @@ class Predictions(lantern.FunctionalBase):
 
     @property
     def denoised_latents(self):
-        # return (
-        #     latents - self.sqrt_one_minus_alphas_cumprod(index) * eps
-        # ) / self.alphas_cumprod(index).sqrt()
         return (
             self.from_diffused_latents - self.from_sigmas * self.predicted_noise
         ) / self.from_alphas.clamp(min=1e-7)
