@@ -113,7 +113,7 @@ class CC12M1Model(nn.Module):
     def __init__(self):
         super().__init__()
         self.shape = (3, 256, 256)
-        self.clip_model = "ViT-B/16"
+        self.clip_model = "ViT-B-16"
 
         c = 128  # The base channel count
         cs = [c, c * 2, c * 2, c * 4, c * 4, c * 8, c * 8]

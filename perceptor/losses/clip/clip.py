@@ -8,7 +8,7 @@ from perceptor.losses.interface import LossInterface
 
 
 class CLIP(LossInterface):
-    def __init__(self, name="ViT-B/32"):
+    def __init__(self, name="ViT-B-32"):
         """
         Args:
             name: name of the clip model. Available models are:
@@ -17,17 +17,17 @@ class CLIP(LossInterface):
                 - RN50x4
                 - RN50x16
                 - RN50x64
-                - ViT-B/32
-                - ViT-B/16
-                - ViT-L/14
-                - ViT-L/14@336px
+                - ViT-B-32
+                - ViT-B-16
+                - ViT-L-14
+                - ViT-L-14-336
         """
         super().__init__()
         self.name = name
         self.model = models.CLIP(name)
         self.encodings = None
         self.weights = None
-        if name in ("ViT-L/14", "ViT-L/14@336px"):
+        if name in ("ViT-L-14", "ViT-L-14-336"):
             self.multiplier = 0.01
         else:
             self.multiplier = 1.0

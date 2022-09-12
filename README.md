@@ -31,8 +31,7 @@ perceptor
     .AdaBinsDepth
     .DeepImagePrior
     .VelocityDiffusion (yfcc_2, yfcc_1, cc12m_1_cfg, wikiart)
-    .ldm (latent diffusion)
-      .FinetunedText2Image
+    .latent_diffusion
       .Text2Image
       .Face
       .SuperResolution
@@ -41,6 +40,7 @@ perceptor
     .MonsterDiffusion (all, tinyhero)
     .StyleGANXL
     .RuDALLE
+    .StableDiffusion
     .SuperResolution
   .losses
     # Text-image similarity

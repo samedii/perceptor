@@ -10,34 +10,34 @@ from basicsr.utils.download_util import load_file_from_url
 from perceptor import models
 
 CHECKPOINT_URLS = {
-    "ViT-B/32": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_b_32_linear.pth",
-    "ViT-B/16": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_b_16_linear.pth",
-    "ViT-L/14": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_l_14_linear.pth",
+    "ViT-B-32": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_b_32_linear.pth",
+    "ViT-B-16": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_b_16_linear.pth",
+    "ViT-L-14": "https://raw.githubusercontent.com/crowsonkb/simulacra-aesthetic-models/master/models/sac_public_2022_06_29_vit_l_14_linear.pth",
     "RN50": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/RN50.pth",
     "RN101": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/RN101.pth",
     "RN50x4": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/RN50x4.pth",
     "RN50x16": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/RN50x16.pth",
     "RN50x64": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/RN50x64.pth",
-    "ViT-L/14@336px": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/ViT-L-14-336px.pth",
+    "ViT-L-14-336": "https://raw.githubusercontent.com/samedii/perceptor/master/perceptor/models/simulacra_aesthetic/weights/ViT-L-14-336px.pth",
 }
 
 
 class SimulacraAesthetic(nn.Module):
-    def __init__(self, model_name="ViT-B/32"):
+    def __init__(self, model_name="ViT-B-32"):
         """
         Simulacra aesthetic loss based on clip linear regression probe that predicts the aesthetic rating of an image.
 
         Args:
             model_name (str): Name of CLIP model. Available models:
-                - ViT-B/32
-                - ViT-B/16
-                - ViT-L/14
+                - ViT-B-32
+                - ViT-B-16
+                - ViT-L-14
                 - RN50
                 - RN101
                 - RN50x4
                 - RN50x16
                 - RN50x64
-                - ViT-L/14@336px
+                - ViT-L-14-336
         """
         super().__init__()
 
@@ -47,8 +47,9 @@ class SimulacraAesthetic(nn.Module):
             CHECKPOINT_URLS[model_name],
             "models",
         )
-        self.linear = nn.Linear(clip_model.output_channels, 1)
-        self.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+        state_dict = torch.load(checkpoint_path, map_location="cpu")
+        self.linear = nn.Linear(state_dict["linear.weight"].shape[1], 1)
+        self.load_state_dict(state_dict)
         self.linear.eval()
         self.linear.requires_grad_(False)
 

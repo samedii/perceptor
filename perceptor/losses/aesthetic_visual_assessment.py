@@ -23,7 +23,7 @@ class AestheticVisualAssessment(LossInterface):
         self.aesthetic_target = aesthetic_target
         self.mode = mode
 
-        self.model = models.CLIP("ViT-B/16")
+        self.model = models.CLIP("ViT-B-16")
 
         checkpoint_path = load_file_from_url(
             "http://batbot.tv/ai/models/v-diffusion/ava_vit_b_16_full.pth",
