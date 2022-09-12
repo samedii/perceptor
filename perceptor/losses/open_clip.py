@@ -8,7 +8,7 @@ class OpenCLIP(LossInterface):
     def __init__(self, architecture="ViT-B-32", weights="laion2b_e16"):
         """
         Args:
-            archicture (str): name of the clip model
+            architecture (str): name of the clip model
             weights (str): name of the weights
 
             Available weight/model combinations are (in order of relevance):

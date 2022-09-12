@@ -10,11 +10,11 @@ from perceptor.transforms.resize import resize
 @utils.cache
 class OpenCLIP(torch.nn.Module):
     def __init__(
-        self, archicture="ViT-B-32", weights="laion2b_e16", precision=None, jit=False
+        self, architecture="ViT-B-32", weights="laion2b_e16", precision=None, jit=False
     ):
         """
         Args:
-            archicture (str): name of the clip model
+            architecture (str): name of the clip model
             weights (str): name of the weights
 
             Available weight/model combinations are (in order of relevance):
@@ -37,11 +37,15 @@ class OpenCLIP(torch.nn.Module):
             - ("ViT-L-14-336", "openai") (76.6%)
         """
         super().__init__()
-        self.archicture = archicture
+        self.architecture = architecture
         self.weights = weights
 
+        if (architecture, weights) not in open_clip.list_pretrained():
+            raise ValueError(f"Invalid architecture/weights: {architecture}/{weights}")
+
         weights_path = open_clip.pretrained.download_pretrained(
-            open_clip.pretrained.get_pretrained_url(archicture, weights), root="models"
+            open_clip.pretrained.get_pretrained_url(architecture, weights),
+            root="models",
         )
 
         # softmax on cpu does not support half precision
@@ -62,7 +66,7 @@ class OpenCLIP(torch.nn.Module):
                 model = model.float()
         else:
             self.model = open_clip.create_model(
-                archicture,
+                architecture,
                 weights_path,
                 device=start_device,
                 precision=precision,
