@@ -68,3 +68,10 @@ class CLOOB(LossInterface):
             .mul(2)
         )
         return (spherical_distance * self.weights).mean()
+
+
+def test_cloob_loss():
+    loss = (
+        CLOOB().add_texts_(["hello", "world"]).add_images_(torch.randn(1, 3, 256, 256))
+    )
+    loss(torch.randn(1, 3, 256, 256))

@@ -72,3 +72,10 @@ class BLIP(LossInterface):
             )
             * self.weights[:, None]
         ).mean()
+
+
+def test_blip_loss():
+    loss = (
+        BLIP().add_texts_(["hello", "world"]).add_images_(torch.randn(1, 3, 256, 256))
+    )
+    loss(torch.randn(1, 3, 256, 256))

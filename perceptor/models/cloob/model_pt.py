@@ -1,10 +1,10 @@
 import math
 import pickle
-import clip
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torchvision import transforms
+import open_clip
 
 
 class PositionalEmbedding(nn.Module):
@@ -177,7 +177,7 @@ class CLOOBModel(nn.Module):
             self.config["image_encoder"]["normalize"]["std"],
         )
         assert self.config["text_encoder"]["tokenizer"] == "clip"
-        self.tokenize = clip.tokenize
+        self.tokenize = open_clip.tokenize
 
 
 def get_pt_model(config):
