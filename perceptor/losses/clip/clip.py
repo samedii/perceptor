@@ -8,7 +8,7 @@ from perceptor.losses.interface import LossInterface
 
 
 class CLIP(LossInterface):
-    def __init__(self, name="ViT-B-32"):
+    def __init__(self, name="ViT-B-32", precision="fp32", jit=False):
         """
         Args:
             name: name of the clip model. Available models are:
@@ -24,7 +24,7 @@ class CLIP(LossInterface):
         """
         super().__init__()
         self.name = name
-        self.model = models.CLIP(name)
+        self.model = models.CLIP(name, precision, jit)
         self.encodings = None
         self.weights = None
         if name in ("ViT-L-14", "ViT-L-14-336"):
