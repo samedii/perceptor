@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
+import torchvision.transforms
 import open_clip
 
 from perceptor import utils
@@ -11,8 +11,8 @@ from perceptor.transforms.resize import resize
 class OpenCLIP(torch.nn.Module):
     def __init__(
         self,
-        architecture="ViT-L-14",
-        weights="laion2b_s32b_b82k",
+        architecture="ViT-H-14",
+        weights="laion2b_s32b_b79k",
         precision=None,
         jit=False,
     ):
@@ -52,10 +52,6 @@ class OpenCLIP(torch.nn.Module):
             raise ValueError(f"Invalid architecture/weights: {architecture}/{weights}")
 
         pretrained_cfg = open_clip.pretrained.get_pretrained_cfg(architecture, weights)
-        weights_path = open_clip.pretrained.download_pretrained(
-            pretrained_cfg,
-            cache_dir="models",
-        )
 
         # softmax on cpu does not support half precision
         start_device = (
@@ -67,48 +63,22 @@ class OpenCLIP(torch.nn.Module):
             else:
                 precision = "fp32"
 
-        # hack: needed to specify path to weights
-        if weights == "openai":
-            self.model = open_clip.load_openai_model(
-                weights_path, start_device, jit=jit
-            ).eval()
-            if precision == "fp32":
-                model = model.float()
-        else:
-            self.model = open_clip.create_model(
-                architecture,
-                weights_path,
-                device=start_device,
-                precision=precision,
-                jit=jit,
-            ).eval()
-
-        # hack: since we specified the weights path instead of the model name the config isn't loaded right
-        setattr(
-            self.model.visual,
-            "image_mean",
-            pretrained_cfg.get(
-                "mean",
-                getattr(self.model.visual, "image_mean", None),
-            )
-            or (0.48145466, 0.4578275, 0.40821073),
+        self.model, _, transforms = open_clip.create_model_and_transforms(
+            architecture,
+            weights,
+            device=start_device,
+            precision=precision,
+            jit=jit,
+            cache_dir="models",
         )
-        setattr(
-            self.model.visual,
-            "image_std",
-            pretrained_cfg.get(
-                "std",
-                getattr(self.model.visual, "image_std", None),
-            )
-            or (0.26862954, 0.26130258, 0.27577711),
-        )
+        self.model = self.model.eval()
 
         if jit is False:
             self.model = self.model.requires_grad_(False)
 
-        self.normalize = transforms.Normalize(
-            self.model.visual.image_mean,
-            self.model.visual.image_std,
+        self.normalize = torchvision.transforms.Normalize(
+            transforms.transforms[-1].mean,
+            transforms.transforms[-1].std,
         )
 
     def to(self, device):
@@ -160,7 +130,7 @@ class OpenCLIP(torch.nn.Module):
 def test_open_clip():
     import torch
 
-    model = OpenCLIP()
+    model = OpenCLIP("ViT-B-32", "laion2b_s34b_b79k")
 
     image = torch.randn((1, 3, 256, 256)).requires_grad_()
     with torch.enable_grad():

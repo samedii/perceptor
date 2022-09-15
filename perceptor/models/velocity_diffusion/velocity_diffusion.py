@@ -95,10 +95,7 @@ class Model(torch.nn.Module):
     @torch.cuda.amp.autocast()
     def velocities(self, diffused, t, conditioning=None):
         x = diffusion_space.encode(diffused)
-        if x.shape[1:] != self.model.shape:
-            raise ValueError(
-                f"Velocity diffusion model {self.name} only works well with shape {self.shape} but got {diffused.shape}"
-            )
+
         if hasattr(self.model, "clip_model"):
             model_fn = partial(self.model, clip_embed=conditioning.squeeze(dim=1))
         else:
