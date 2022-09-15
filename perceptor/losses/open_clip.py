@@ -5,30 +5,38 @@ from perceptor.losses.interface import LossInterface
 
 
 class OpenCLIP(LossInterface):
-    def __init__(self, architecture="ViT-B-32", weights="laion2b_e16"):
+    def __init__(
+        self,
+        architecture="ViT-H-14",
+        weights="laion2b_s32b_b79k",
+    ):
         """
         Args:
             architecture (str): name of the clip model
             weights (str): name of the weights
 
             Available weight/model combinations are (in order of relevance):
-            - ("ViT-B-32", "laion2b_e16") (65.62%)
-            - ("ViT-B-16-plus-240", "laion400m_e32") (69.21%)
-            - ("ViT-B-16", "laion400m_e32") (67.07%)
-            - ("ViT-B-32", "laion400m_e32") (62.96%)
-            - ("ViT-L-14", "laion400m_e32") (72.77%)
+            - ("ViT-H-14", "laion2b_s32b_b79k") (78.0%)
+            - ("ViT-g-14", "laion2b_s12b_b42k") (76.6%)
+            - ("ViT-L-14", "laion2b_s32b_b82k") (75.3%)
+            - ("ViT-B-32", "laion2b_s34b_b79k") (66.6%)
+            - ("ViT-B-16-plus-240", "laion400m_e32") (69.2%)
+            - ("ViT-B-32", "laion2b_e16") (65.7%)
+            - ("ViT-B-16", "laion400m_e32") (67.0%)
+            - ("ViT-B-32", "laion400m_e32") (62.9%)
+            - ("ViT-L-14", "laion400m_e32") (72.8%)
             - ("RN101", "yfcc15m") (34.8%)
             - ("RN50", "yfcc15m") (32.7%)
             - ("RN50", "cc12m") (36.45%)
-            - ("RN50-quickgelu", "openai")
+            - ("RN50-quickgelu", "openai") (59.6%)
             - ("RN101-quickgelu", "openai")
             - ("RN50x4", "openai")
             - ("RN50x16", "openai")
             - ("RN50x64", "openai")
-            - ("ViT-B-32-quickgelu", "openai")
-            - ("ViT-B-16", "openai")
-            - ("ViT-L-14", "openai")
-            - ("ViT-L-14-336", "openai")
+            - ("ViT-B-32-quickgelu", "openai") (63.3%)
+            - ("ViT-B-16", "openai") (68.3%)
+            - ("ViT-L-14", "openai") (75.6%)
+            - ("ViT-L-14-336", "openai") (76.6%)
         """
         super().__init__()
         self.architecture = architecture

@@ -10,7 +10,11 @@ from perceptor.transforms.resize import resize
 @utils.cache
 class OpenCLIP(torch.nn.Module):
     def __init__(
-        self, architecture="ViT-B-32", weights="laion2b_e16", precision=None, jit=False
+        self,
+        architecture="ViT-L-14",
+        weights="laion2b_s32b_b82k",
+        precision=None,
+        jit=False,
     ):
         """
         Args:
@@ -18,8 +22,12 @@ class OpenCLIP(torch.nn.Module):
             weights (str): name of the weights
 
             Available weight/model combinations are (in order of relevance):
-            - ("ViT-B-32", "laion2b_e16") (65.7%)
+            - ("ViT-H-14", "laion2b_s32b_b79k") (78.0%)
+            - ("ViT-g-14", "laion2b_s12b_b42k") (76.6%)
+            - ("ViT-L-14", "laion2b_s32b_b82k") (75.3%)
+            - ("ViT-B-32", "laion2b_s34b_b79k") (66.6%)
             - ("ViT-B-16-plus-240", "laion400m_e32") (69.2%)
+            - ("ViT-B-32", "laion2b_e16") (65.7%)
             - ("ViT-B-16", "laion400m_e32") (67.0%)
             - ("ViT-B-32", "laion400m_e32") (62.9%)
             - ("ViT-L-14", "laion400m_e32") (72.8%)
@@ -43,9 +51,10 @@ class OpenCLIP(torch.nn.Module):
         if (architecture, weights) not in open_clip.list_pretrained():
             raise ValueError(f"Invalid architecture/weights: {architecture}/{weights}")
 
+        pretrained_cfg = open_clip.pretrained.get_pretrained_cfg(architecture, weights)
         weights_path = open_clip.pretrained.download_pretrained(
-            open_clip.pretrained.get_pretrained_url(architecture, weights),
-            root="models",
+            pretrained_cfg,
+            cache_dir="models",
         )
 
         # softmax on cpu does not support half precision
@@ -58,6 +67,7 @@ class OpenCLIP(torch.nn.Module):
             else:
                 precision = "fp32"
 
+        # hack: needed to specify path to weights
         if weights == "openai":
             self.model = open_clip.load_openai_model(
                 weights_path, start_device, jit=jit
@@ -73,12 +83,32 @@ class OpenCLIP(torch.nn.Module):
                 jit=jit,
             ).eval()
 
+        # hack: since we specified the weights path instead of the model name the config isn't loaded right
+        setattr(
+            self.model.visual,
+            "image_mean",
+            pretrained_cfg.get(
+                "mean",
+                getattr(self.model.visual, "image_mean", None),
+            )
+            or (0.48145466, 0.4578275, 0.40821073),
+        )
+        setattr(
+            self.model.visual,
+            "image_std",
+            pretrained_cfg.get(
+                "std",
+                getattr(self.model.visual, "image_std", None),
+            )
+            or (0.26862954, 0.26130258, 0.27577711),
+        )
+
         if jit is False:
             self.model = self.model.requires_grad_(False)
 
         self.normalize = transforms.Normalize(
-            (0.48145466, 0.4578275, 0.40821073),
-            (0.26862954, 0.26130258, 0.27577711),
+            self.model.visual.image_mean,
+            self.model.visual.image_std,
         )
 
     def to(self, device):
@@ -89,6 +119,13 @@ class OpenCLIP(torch.nn.Module):
     @property
     def device(self):
         return next(iter(self.parameters())).device
+
+    @property
+    def image_size(self):
+        if isinstance(self.model.visual.image_size, tuple):
+            return self.model.visual.image_size
+        else:
+            return (self.model.visual.image_size, self.model.visual.image_size)
 
     @torch.cuda.amp.autocast()
     def encode_texts(self, text_prompts, normalize=True):
@@ -106,10 +143,7 @@ class OpenCLIP(torch.nn.Module):
             self.normalize(
                 resize(
                     images.to(self.device),
-                    out_shape=(
-                        self.model.visual.image_size,
-                        self.model.visual.image_size,
-                    ),
+                    out_shape=self.image_size,
                 )
             )
         )
@@ -126,7 +160,7 @@ class OpenCLIP(torch.nn.Module):
 def test_open_clip():
     import torch
 
-    model = OpenCLIP("ViT-B-32", "laion2b_e16")
+    model = OpenCLIP()
 
     image = torch.randn((1, 3, 256, 256)).requires_grad_()
     with torch.enable_grad():
