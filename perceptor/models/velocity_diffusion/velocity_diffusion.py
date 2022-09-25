@@ -142,6 +142,26 @@ class Model(torch.nn.Module):
         alphas, sigmas = self.alphas(ts), self.sigmas(ts)
         return diffusion_space.decode(denoised_xs * alphas + noise * sigmas)
 
+    def inject_noise(
+        self, diffused_images, ts, reversed_ts, extra_noise_multiplier=1.003
+    ):
+        diffused_xs = diffusion_space.encode(diffused_images).to(self.device)
+
+        diffused_multiplier = self.alphas(reversed_ts) / self.alphas(ts)
+        target_sigmas = self.sigmas(reversed_ts)
+        additional_noise_std = (
+            target_sigmas.square()
+            - self.sigmas(ts).square() * diffused_multiplier.square()
+        ).sqrt()
+
+        reversed_diffused_xs = (
+            diffused_xs * diffused_multiplier
+            + additional_noise_std
+            * torch.randn_like(diffused_xs)
+            * extra_noise_multiplier
+        )
+        return diffusion_space.decode(reversed_diffused_xs)
+
 
 VelocityDiffusion: Model = cache(Model)
 

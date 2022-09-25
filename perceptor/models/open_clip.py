@@ -51,8 +51,6 @@ class OpenCLIP(torch.nn.Module):
         if (architecture, weights) not in open_clip.list_pretrained():
             raise ValueError(f"Invalid architecture/weights: {architecture}/{weights}")
 
-        pretrained_cfg = open_clip.pretrained.get_pretrained_cfg(architecture, weights)
-
         # softmax on cpu does not support half precision
         start_device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
