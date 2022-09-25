@@ -47,6 +47,7 @@ perceptor
     .BLIP
     .CLIP
     .CLOOB
+    .LiT
     .GlideCLIP
     .OpenCLIP
     .OWLViT

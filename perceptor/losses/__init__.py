@@ -2,6 +2,7 @@ from .aesthetic_visual_assessment import AestheticVisualAssessment
 from .blip import BLIP
 from .clip import CLIP
 from .cloob import CLOOB
+from .lit import LiT
 from .velocity_diffusion import VelocityDiffusion
 from .lpips import LPIPS
 from .super_resolution import SuperResolution, SuperResolutionDiscriminator
