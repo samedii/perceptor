@@ -211,8 +211,8 @@ class Model(torch.nn.Module):
             schedule_sigmas=self.schedule_sigmas,
         )
 
-    def predictions(self, diffused_latents, ts, conditioning=None):
-        return self.forward(diffused_latents, ts, conditioning)
+    def predictions(self, diffused_latents, indices, conditioning=None):
+        return self.forward(diffused_latents, indices, conditioning)
 
     def conditioning(self, texts=None, images=None, encodings=None):
         """
