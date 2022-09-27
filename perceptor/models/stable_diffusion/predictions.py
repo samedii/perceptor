@@ -188,17 +188,10 @@ class Predictions(lantern.FunctionalBase):
         return self.forced_denoised_latents(denoised_latents)
 
     def forced_denoised_latents(self, denoised_latents) -> "Predictions":
-        # if (self.from_sigmas >= 1e-3).all():
-        #     predicted_noise = (
-        #         self.from_diffused_latents - denoised_latents * self.from_alphas
-        #     ) / self.from_sigmas
-        # else:
-        #     predicted_noise = self.predicted_noise
-        # return self.replace(
-        #     velocities=self.from_alphas * predicted_noise
-        #     - self.from_sigmas * denoised_latents
-        # )
-        pass
+        predicted_noise = (
+            self.from_diffused_latents - denoised_latents * self.from_alphas
+        ) / self.from_sigmas.clamp(min=1e-7)
+        return self.replace(predicted_noise=predicted_noise)
 
     def forced_predicted_noise(self, predicted_noise) -> "Predictions":
         return self.replace(predicted_noise=predicted_noise)

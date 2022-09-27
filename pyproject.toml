@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "perceptor"
-version = "0.6.0"
+version = "0.6.1"
 description = "Modular image generation library"
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 readme = "README.md"
@@ -14,6 +14,7 @@ numpy = "^1.22.2"
 tqdm = "^4.62.3"
 einops = "^0.4.0"
 imageio = "^2.14.1"
+
 kornia = "^0.6.3"
 Pillow = "^9.0.1"
 timm = "^0.5.4"

@@ -104,7 +104,7 @@ class Predictions(lantern.FunctionalBase):
         return diffusion_space.decode(to_diffused_xs)
 
     def correction(self, previous: "Predictions"):
-        return previous.forced_denoised(
+        return previous.forced_denoised_images(
             (self.denoised_images + previous.denoised_images) / 2
         )
 
@@ -169,12 +169,12 @@ class Predictions(lantern.FunctionalBase):
             # / dynamic_threshold
             # imagen's dynamic thresholding divides by threshold but this makes the images gray
         )
-        return self.forced_denoised(diffusion_space.decode(denoised_xs))
+        return self.forced_denoised_images(diffusion_space.decode(denoised_xs))
 
     def static_threshold(self):
-        return self.forced_denoised(clamp_with_grad(self.denoised_images, 0, 1))
+        return self.forced_denoised_images(clamp_with_grad(self.denoised_images, 0, 1))
 
-    def forced_denoised(self, denoised_images) -> "Predictions":
+    def forced_denoised_images(self, denoised_images) -> "Predictions":
         denoised_xs = diffusion_space.encode(denoised_images)
         if (self.from_sigmas >= 1e-3).all():
             predicted_noise = (

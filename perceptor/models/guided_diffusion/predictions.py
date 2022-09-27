@@ -172,12 +172,9 @@ class Predictions(lantern.FunctionalBase):
 
     def forced_denoised_images(self, denoised_images) -> "Predictions":
         denoised_xs = diffusion_space.encode(denoised_images)
-        if (self.from_sigmas >= 1e-3).all():
-            predicted_noise = (
-                self.from_diffused_xs - denoised_xs * self.from_alphas
-            ) / self.from_sigmas
-        else:
-            predicted_noise = self.predicted_noise
+        predicted_noise = (
+            self.from_diffused_xs - denoised_xs * self.from_alphas
+        ) / self.from_sigmas.clamp(min=1e-7)
         return self.replace(predicted_noise=predicted_noise)
 
     def forced_predicted_noise(self, predicted_noise) -> "Predictions":

@@ -120,7 +120,7 @@ class Model(torch.nn.Module):
             raise Exception(f"Width must be divisible by 32, got {w}")
         return (
             0.18215
-            * self.vae.encode(diffusion_space.encode(images.to(self.device))).sample()
+            * self.vae.encode(diffusion_space.encode(images.to(self.device))).mode()
         )
 
     def decode(
