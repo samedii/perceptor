@@ -13,7 +13,8 @@ from .predictions import Predictions
 from .conditioning import Conditioning
 
 
-class Model(torch.nn.Module):
+@cache
+class StableDiffusion(torch.nn.Module):
     def __init__(
         self, name="CompVis/stable-diffusion-v1-4", fp16=False, auth_token=True
     ):
@@ -73,7 +74,9 @@ class Model(torch.nn.Module):
     def shape(self):
         return self.model.shape
 
-    def schedule_indices(self, n_steps=500, from_index=999, to_index=0, rho=3.0):
+    def schedule_indices(
+        self, n_steps=500, from_index=999, to_index=0, rho=3.0
+    ) -> lantern.Tensor:
         if from_index < to_index:
             raise ValueError("from_index must be greater than to_index")
 
@@ -158,7 +161,7 @@ class Model(torch.nn.Module):
     ) -> lantern.Tensor.dims("NCHW"):
         return self.decode(latents).float()
 
-    def random_diffused_latents(self, shape):
+    def random_diffused_latents(self, shape) -> lantern.Tensor:
         n, c, h, w = shape
         if h % 8 != 0:
             raise ValueError("Height must be divisible by 32")
@@ -166,7 +169,7 @@ class Model(torch.nn.Module):
             raise ValueError("Width must be divisible by 32")
         return torch.randn((n, self.unet.in_channels, h // 8, w // 8)).to(self.device)
 
-    def indices(self, indices):
+    def indices(self, indices) -> lantern.Tensor:
         if isinstance(indices, float) or isinstance(indices, int):
             indices = torch.as_tensor(indices)
         if indices.ndim == 0:
@@ -175,12 +178,12 @@ class Model(torch.nn.Module):
             raise ValueError("indices must be a scalar or a 1-dimensional tensor")
         return indices.long().to(self.device)
 
-    def alphas(self, indices):
+    def alphas(self, indices) -> lantern.Tensor:
         return self.schedule_alphas[self.indices(indices)][:, None, None, None].to(
             self.device
         )
 
-    def sigmas(self, indices):
+    def sigmas(self, indices) -> lantern.Tensor:
         return self.schedule_sigmas[self.indices(indices)][:, None, None, None].to(
             self.device
         )
@@ -191,14 +194,14 @@ class Model(torch.nn.Module):
         diffused_latents,
         from_indices,
         conditioning: Conditioning,
-    ):
+    ) -> lantern.Tensor:
 
         predicted_noise = self.unet(
             diffused_latents, self.indices(from_indices), conditioning.encodings
         )["sample"]
         return predicted_noise.float()
 
-    def forward(self, diffused_latents, indices, conditioning=None):
+    def forward(self, diffused_latents, indices, conditioning=None) -> Predictions:
         indices = self.indices(indices)
         return Predictions(
             from_diffused_latents=diffused_latents,
@@ -212,10 +215,10 @@ class Model(torch.nn.Module):
             decode=self.decode,
         )
 
-    def predictions(self, diffused_latents, indices, conditioning):
+    def predictions(self, diffused_latents, indices, conditioning) -> Predictions:
         return self.forward(diffused_latents, indices, conditioning)
 
-    def conditioning(self, texts=None, images=None, encodings=None):
+    def conditioning(self, texts=None, images=None, encodings=None) -> Conditioning:
         """
         Create a conditioning object from a list of texts. Unconditional is an empty string.
         """
@@ -240,15 +243,12 @@ class Model(torch.nn.Module):
         text_encodings = text_encoder(tokenized_text.input_ids.to(self.device))[0]
         return Conditioning(encodings=text_encodings)
 
-    def diffuse_latents(self, denoised_latents, indices, noise=None):
+    def diffuse_latents(self, denoised_latents, indices, noise=None) -> lantern.Tensor:
         indices = self.indices(indices)
         if noise is None:
             noise = torch.randn_like(denoised_latents)
         alphas, sigmas = self.alphas(indices), self.sigmas(indices)
         return denoised_latents * alphas + noise * sigmas
-
-
-StableDiffusion: Model = cache(Model)
 
 
 def test_stable_diffusion_step():
@@ -267,7 +267,7 @@ def test_stable_diffusion_step():
 
     texts = ["painting of a dog"]
 
-    diffusion_model = Model(model_name).to(device)
+    diffusion_model = StableDiffusion(model_name).to(device)
 
     diffused_latents = diffusion_model.random_diffused_latents((1, 3, 512, 512))
 

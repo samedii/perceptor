@@ -97,9 +97,7 @@ class DDPM(pl.LightningModule):
             "x0",
         ], 'currently only supporting "eps" and "x0"'
         self.parameterization = parameterization
-        print(
-            f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode"
-        )
+
         self.cond_stage_model = None
         self.clip_denoised = clip_denoised
         self.log_every_t = log_every_t

@@ -1,9 +1,7 @@
 from typing import Optional
 from contextlib import contextmanager
-import copy
 import torch
 import lantern
-from transformers import CLIPTokenizer, CLIPTextModel, logging
 from basicsr.utils.download_util import load_file_from_url
 
 from perceptor.utils import cache
@@ -12,7 +10,8 @@ from .create_models import create_openimages_model, create_pixelart_model
 from .predictions import Predictions
 
 
-class Model(torch.nn.Module):
+@cache
+class GuidedDiffusion(torch.nn.Module):
     def __init__(self, name="standard"):
         """
         Args:
@@ -56,7 +55,9 @@ class Model(torch.nn.Module):
     def device(self):
         return next(iter(self.parameters())).device
 
-    def schedule_indices(self, n_steps=500, from_index=999, to_index=0, rho=7.0):
+    def schedule_indices(
+        self, n_steps=500, from_index=999, to_index=0, rho=7.0
+    ) -> lantern.Tensor:
         if from_index < to_index:
             raise ValueError("from_index must be greater than to_index")
 
@@ -94,7 +95,7 @@ class Model(torch.nn.Module):
         assert (schedule_indices[:-1] != schedule_indices[1:]).all()
         return torch.stack([schedule_indices[:-1], schedule_indices[1:]], dim=1)
 
-    def random_diffused(self, shape):
+    def random_diffused(self, shape) -> lantern.Tensor:
         n, c, h, w = shape
         if h % 8 != 0:
             raise ValueError("Height must be divisible by 32")
@@ -102,7 +103,7 @@ class Model(torch.nn.Module):
             raise ValueError("Width must be divisible by 32")
         return diffusion_space.decode(torch.randn(shape).to(self.device))
 
-    def indices(self, indices):
+    def indices(self, indices) -> lantern.Tensor:
         if isinstance(indices, float) or isinstance(indices, int):
             indices = torch.as_tensor(indices)
         if indices.ndim == 0:
@@ -111,12 +112,12 @@ class Model(torch.nn.Module):
             raise ValueError("indices must be a scalar or a 1-dimensional tensor")
         return indices.long().to(self.device)
 
-    def alphas(self, indices):
+    def alphas(self, indices) -> lantern.Tensor:
         return self.schedule_alphas[self.indices(indices)][:, None, None, None].to(
             self.device
         )
 
-    def sigmas(self, indices):
+    def sigmas(self, indices) -> lantern.Tensor:
         return self.schedule_sigmas[self.indices(indices)][:, None, None, None].to(
             self.device
         )
@@ -126,12 +127,12 @@ class Model(torch.nn.Module):
         self,
         diffused_images,
         from_indices,
-    ):
+    ) -> lantern.Tensor:
         return self.model(
             diffusion_space.encode(diffused_images), self.indices(from_indices)
         )[:, :3].float()
 
-    def predictions(self, diffused_images, indices):
+    def predictions(self, diffused_images, indices) -> Predictions:
         indices = self.indices(indices)
         return Predictions(
             from_diffused_images=diffused_images,
@@ -141,10 +142,10 @@ class Model(torch.nn.Module):
             schedule_sigmas=self.schedule_sigmas,
         )
 
-    def forward(self, diffused_images, indices):
+    def forward(self, diffused_images, indices) -> Predictions:
         return self.predictions(diffused_images, indices)
 
-    def diffuse_images(self, denoised_images, indices, noise=None):
+    def diffuse_images(self, denoised_images, indices, noise=None) -> lantern.Tensor:
         indices = self.indices(indices)
         if noise is None:
             noise = torch.randn_like(denoised_images)
@@ -152,9 +153,6 @@ class Model(torch.nn.Module):
         return diffusion_space.decode(
             diffusion_space.encode(denoised_images) * alphas + noise * sigmas
         )
-
-
-GuidedDiffusion: Model = cache(Model)
 
 
 def test_guided_diffusion():

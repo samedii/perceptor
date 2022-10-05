@@ -11,7 +11,8 @@ from . import diffusion_space, utils
 from .predictions import Predictions
 
 
-class Model(torch.nn.Module):
+@cache
+class VelocityDiffusion(torch.nn.Module):
     def __init__(self, name="yfcc_2"):
         """
         Args:
@@ -45,7 +46,7 @@ class Model(torch.nn.Module):
         return self.model.shape
 
     @staticmethod
-    def schedule_ts(n_steps=500, from_ts=1.0, to_ts=1e-2, rho=7.0):
+    def schedule_ts(n_steps=500, from_ts=1.0, to_ts=1e-2, rho=7.0) -> lantern.Tensor:
         from_alpha, from_sigma = utils.t_to_alpha_sigma(torch.as_tensor(from_ts))
         to_alpha, to_sigma = utils.t_to_alpha_sigma(torch.as_tensor(to_ts))
 
@@ -64,15 +65,15 @@ class Model(torch.nn.Module):
         schedule_ts = utils.alpha_sigma_to_t(alpha, sigma)
         return torch.stack([schedule_ts[:-1], schedule_ts[1:]], dim=1)
 
-    def random_diffused(self, shape):
+    def random_diffused(self, shape) -> lantern.Tensor:
         return diffusion_space.decode(torch.randn(shape)).to(self.device)
 
     @staticmethod
-    def sigmas_to_ts(sigmas):
+    def sigmas_to_ts(sigmas) -> lantern.Tensor:
         sigmas = torch.as_tensor(sigmas)
         return utils.sigma_to_t(sigmas)
 
-    def alphas(self, ts):
+    def alphas(self, ts) -> lantern.Tensor:
         if isinstance(ts, float):
             ts = torch.tensor(ts)
         if ts.ndim == 0:
@@ -82,7 +83,7 @@ class Model(torch.nn.Module):
         alphas, _ = utils.t_to_alpha_sigma(ts)
         return alphas[:, None, None, None].to(self.device)
 
-    def sigmas(self, ts):
+    def sigmas(self, ts) -> lantern.Tensor:
         if isinstance(ts, float):
             ts = torch.tensor(ts)
         if ts.ndim == 0:
@@ -93,7 +94,7 @@ class Model(torch.nn.Module):
         return sigmas[:, None, None, None].to(self.device)
 
     @torch.cuda.amp.autocast()
-    def velocities(self, diffused, t, conditioning=None):
+    def velocities(self, diffused, t, conditioning=None) -> lantern.Tensor:
         x = diffusion_space.encode(diffused)
 
         if hasattr(self.model, "clip_model"):
@@ -107,7 +108,7 @@ class Model(torch.nn.Module):
         velocities = model_fn(x, t)
         return velocities.float()
 
-    def forward(self, diffused_images, ts, conditioning=None):
+    def forward(self, diffused_images, ts, conditioning=None) -> Predictions:
         if isinstance(ts, float) or ts.ndim == 0:
             ts = torch.full((diffused_images.shape[0],), ts).to(diffused_images)
         return Predictions(
@@ -116,10 +117,10 @@ class Model(torch.nn.Module):
             velocities=self.velocities(diffused_images, ts, conditioning),
         )
 
-    def predictions(self, diffused_images, ts, conditioning=None):
+    def predictions(self, diffused_images, ts, conditioning=None) -> Predictions:
         return self.forward(diffused_images, ts, conditioning)
 
-    def conditioning(self, texts=None, images=None, encodings=None):
+    def conditioning(self, texts=None, images=None, encodings=None) -> lantern.Tensor:
         clip_model = models.CLIP(self.model.clip_model)
 
         all_encodings = list()
@@ -133,7 +134,7 @@ class Model(torch.nn.Module):
             raise ValueError("Must provide at least one of texts, images, or encodings")
         return torch.stack(all_encodings, dim=0).mean(dim=0)[None]
 
-    def diffuse(self, denoised_images, ts, noise=None):
+    def diffuse(self, denoised_images, ts, noise=None) -> lantern.Tensor:
         denoised_xs = diffusion_space.encode(denoised_images)
         if isinstance(ts, float) or ts.ndim == 0:
             ts = torch.full((denoised_xs.shape[0],), ts).to(denoised_xs)
@@ -144,7 +145,7 @@ class Model(torch.nn.Module):
 
     def inject_noise(
         self, diffused_images, ts, reversed_ts, extra_noise_multiplier=1.003
-    ):
+    ) -> lantern.Tensor:
         diffused_xs = diffusion_space.encode(diffused_images).to(self.device)
 
         diffused_multiplier = self.alphas(reversed_ts) / self.alphas(ts)
@@ -161,9 +162,6 @@ class Model(torch.nn.Module):
             * extra_noise_multiplier
         )
         return diffusion_space.decode(reversed_diffused_xs)
-
-
-VelocityDiffusion: Model = cache(Model)
 
 
 def test_velocity_diffusion():

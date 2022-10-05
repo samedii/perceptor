@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 import lantern
 
@@ -14,7 +15,7 @@ class Predictions(lantern.FunctionalBase):
     def device(self):
         return self.velocities.device
 
-    def alphas(self, ts):
+    def alphas(self, ts) -> lantern.Tensor:
         if isinstance(ts, float):
             ts = torch.tensor(ts)
         if ts.ndim == 0:
@@ -24,7 +25,7 @@ class Predictions(lantern.FunctionalBase):
         alphas, _ = utils.t_to_alpha_sigma(ts)
         return alphas[:, None, None, None].to(self.device)
 
-    def sigmas(self, ts):
+    def sigmas(self, ts) -> lantern.Tensor:
         if isinstance(ts, float):
             ts = torch.tensor(ts)
         if ts.ndim == 0:
@@ -35,36 +36,36 @@ class Predictions(lantern.FunctionalBase):
         return sigmas[:, None, None, None].to(self.device)
 
     @property
-    def from_alphas(self):
+    def from_alphas(self) -> lantern.Tensor:
         return self.alphas(self.from_ts)
 
     @property
-    def from_sigmas(self):
+    def from_sigmas(self) -> lantern.Tensor:
         return self.sigmas(self.from_ts)
 
     @property
-    def from_diffused_xs(self):
+    def from_diffused_xs(self) -> lantern.Tensor:
         return diffusion_space.encode(self.from_diffused_images)
 
     @property
-    def denoised_xs(self):
+    def denoised_xs(self) -> lantern.Tensor:
         return (
             self.from_diffused_xs * self.from_alphas
             - self.velocities * self.from_sigmas
         )
 
     @property
-    def predicted_noise(self):
+    def predicted_noise(self) -> lantern.Tensor:
         return (
             self.from_diffused_xs * self.from_sigmas
             + self.velocities * self.from_alphas
         )
 
     @property
-    def denoised_images(self):
+    def denoised_images(self) -> lantern.Tensor:
         return diffusion_space.decode(self.denoised_xs)
 
-    def step(self, to_ts, eta=0.0):
+    def step(self, to_ts, eta=0.0) -> lantern.Tensor:
         """
         Reduce noise level to `to_ts`
 
@@ -103,19 +104,19 @@ class Predictions(lantern.FunctionalBase):
 
         return diffusion_space.decode(to_diffused_xs)
 
-    def correction(self, previous: "Predictions"):
+    def correction(self, previous: Predictions) -> Predictions:
         return previous.forced_denoised_images(
             (self.denoised_images + previous.denoised_images) / 2
         )
 
-    def reverse_step(self, to_ts):
+    def reverse_step(self, to_ts) -> lantern.Tensor:
         if (torch.as_tensor(self.from_ts) > torch.as_tensor(to_ts)).any():
             raise ValueError("from_ts must be less than to_ts")
 
         to_alphas, to_sigmas = self.alphas(to_ts), self.sigmas(to_ts)
         return self.denoised_xs * to_alphas + self.predicted_noise * to_sigmas
 
-    def resample_noise(self, resample_ts):
+    def resample_noise(self, resample_ts) -> lantern.Tensor:
         if (torch.as_tensor(self.from_ts) < torch.as_tensor(resample_ts)).any():
             raise ValueError("from_ts must be greater than resample_ts")
         resampled_noise_sigma = (
@@ -126,7 +127,7 @@ class Predictions(lantern.FunctionalBase):
         )  # fmt: skip
         return resampled_noise_sigma / self.from_sigmas
 
-    def resample(self, resample_ts):
+    def resample(self, resample_ts) -> lantern.Tensor:
         """
         Harmonizing resampling from https://github.com/andreas128/RePaint
         """
@@ -135,7 +136,7 @@ class Predictions(lantern.FunctionalBase):
             + self.resample_noise(resample_ts) * self.from_sigmas
         )
 
-    def noisy_reverse_step(self, to_ts):
+    def noisy_reverse_step(self, to_ts) -> lantern.Tensor:
         to_alphas, to_sigmas = self.alphas(to_ts), self.sigmas(to_ts)
 
         noise_sigma = self.from_sigmas * self.predicted_noise + (
@@ -144,7 +145,7 @@ class Predictions(lantern.FunctionalBase):
 
         return diffusion_space.decode(self.denoised_xs * to_alphas + noise_sigma)
 
-    def guided(self, guiding, guidance_scale=0.5, clamp_value=1e-6) -> "Predictions":
+    def guided(self, guiding, guidance_scale=0.5, clamp_value=1e-6) -> Predictions:
         return self.replace(
             velocities=self.velocities
             + guidance_scale
@@ -153,7 +154,7 @@ class Predictions(lantern.FunctionalBase):
             / clamp_value
         )
 
-    def dynamic_threshold(self, quantile=0.95) -> "Predictions":
+    def dynamic_threshold(self, quantile=0.95) -> Predictions:
         """
         Thresholding heuristic from imagen paper
         """
@@ -166,15 +167,14 @@ class Predictions(lantern.FunctionalBase):
                 -dynamic_threshold,
                 dynamic_threshold,
             )
-            # / dynamic_threshold
-            # imagen's dynamic thresholding divides by threshold but this makes the images gray
+            / dynamic_threshold
         )
         return self.forced_denoised_images(diffusion_space.decode(denoised_xs))
 
     def static_threshold(self):
         return self.forced_denoised_images(clamp_with_grad(self.denoised_images, 0, 1))
 
-    def forced_denoised_images(self, denoised_images) -> "Predictions":
+    def forced_denoised_images(self, denoised_images) -> Predictions:
         denoised_xs = diffusion_space.encode(denoised_images)
         if (self.from_sigmas >= 1e-3).all():
             predicted_noise = (
@@ -187,7 +187,7 @@ class Predictions(lantern.FunctionalBase):
             - self.from_sigmas * denoised_xs
         )
 
-    def forced_predicted_noise(self, predicted_noise) -> "Predictions":
+    def forced_predicted_noise(self, predicted_noise) -> Predictions:
         if (self.from_alphas >= 1e-3).all():
             denoised_xs = (
                 self.from_diffused_xs - predicted_noise * self.from_sigmas
@@ -199,7 +199,7 @@ class Predictions(lantern.FunctionalBase):
             - self.from_sigmas * denoised_xs
         )
 
-    def wasserstein_distance(self):
+    def wasserstein_distance(self) -> lantern.Tensor:
         sorted_noise = self.predicted_noise.flatten(start_dim=1).sort(dim=1)[0]
         n = sorted_noise.shape[1]
         margin = 0.5 / n
@@ -207,7 +207,7 @@ class Predictions(lantern.FunctionalBase):
         expected_noise = torch.distributions.Normal(0, 1).icdf(points)
         return (sorted_noise - expected_noise[None].to(sorted_noise)).abs().mean()
 
-    def wasserstein_square_distance(self):
+    def wasserstein_square_distance(self) -> lantern.Tensor:
         sorted_noise = self.predicted_noise.flatten(start_dim=1).sort(dim=1)[0]
         n = sorted_noise.shape[1]
         margin = 0.5 / n

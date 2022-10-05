@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "perceptor"
-version = "0.6.1"
+version = "0.6.2"
 description = "Modular image generation library"
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 readme = "README.md"
@@ -9,7 +9,7 @@ repository = "https://github.com/samedii/perceptor"
 [tool.poetry.dependencies]
 python = "^3.8"
 torch = "^1.11.0"
-torchvision = "^0.12.0"
+torchvision = "*"
 numpy = "^1.22.2"
 tqdm = "^4.62.3"
 einops = "^0.4.0"
