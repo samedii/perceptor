@@ -1,3 +1,4 @@
+from typing import Callable
 import torch
 import lantern
 
@@ -10,6 +11,8 @@ class Predictions(lantern.FunctionalBase):
     predicted_noise: lantern.Tensor.dims("NCHW")
     schedule_alphas: lantern.Tensor
     schedule_sigmas: lantern.Tensor
+    encode: Callable[[lantern.Tensor.dims("NCHW")], lantern.Tensor.dims("NCHW")]
+    decode: Callable[[lantern.Tensor.dims("NCHW")], lantern.Tensor.dims("NCHW")]
 
     @property
     def device(self):
@@ -47,6 +50,10 @@ class Predictions(lantern.FunctionalBase):
         return (
             self.from_diffused_latents - self.from_sigmas * self.predicted_noise
         ) / self.from_alphas.clamp(min=1e-7)
+
+    @property
+    def denoised_images(self):
+        return self.decode(self.denoised_latents)
 
     def step(self, to_indices, eta=0.0):
         """
@@ -173,19 +180,19 @@ class Predictions(lantern.FunctionalBase):
         """
         Thresholding heuristic from imagen paper
         """
+        denoised_images = self.decode(self.denoised_latents)
         dynamic_threshold = torch.quantile(
-            self.denoised_latents.flatten(start_dim=1).abs(), quantile, dim=1
+            denoised_images.flatten(start_dim=1).abs(), quantile, dim=1
         ).clamp(min=1.0)
-        denoised_latents = (
+        denoised_images = (
             clamp_with_grad(
-                self.denoised_latents,
+                denoised_images,
                 -dynamic_threshold,
                 dynamic_threshold,
             )
-            # / dynamic_threshold
-            # imagen's dynamic thresholding divides by threshold but this makes the images gray
+            / dynamic_threshold
         )
-        return self.forced_denoised_latents(denoised_latents)
+        return self.forced_denoised_latents(self.encode(denoised_images))
 
     def forced_denoised_latents(self, denoised_latents) -> "Predictions":
         predicted_noise = (

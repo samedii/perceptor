@@ -1,3 +1,4 @@
+from json import encoder
 from typing import Optional
 from contextlib import contextmanager
 import copy
@@ -189,10 +190,8 @@ class Model(torch.nn.Module):
         self,
         diffused_latents,
         from_indices,
-        conditioning: Optional[Conditioning] = None,
+        conditioning: Conditioning,
     ):
-        if conditioning is None:
-            conditioning = self.conditioning()
 
         predicted_noise = self.unet(
             diffused_latents, self.indices(from_indices), conditioning.encodings
@@ -209,9 +208,11 @@ class Model(torch.nn.Module):
             ),
             schedule_alphas=self.schedule_alphas,
             schedule_sigmas=self.schedule_sigmas,
+            encode=self.encode,
+            decode=self.decode,
         )
 
-    def predictions(self, diffused_latents, indices, conditioning=None):
+    def predictions(self, diffused_latents, indices, conditioning):
         return self.forward(diffused_latents, indices, conditioning)
 
     def conditioning(self, texts=None, images=None, encodings=None):
