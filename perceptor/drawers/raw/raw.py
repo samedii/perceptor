@@ -34,11 +34,11 @@ class Raw(DrawingInterface):
 
     @staticmethod
     def random_fractal_image(shape):
-        return fractal(shape)
+        return Raw(fractal(shape))
 
     @staticmethod
     def random_gradient_image(shape):
-        return gradient(shape)
+        return Raw(gradient(shape))
 
 
 def test_raw():
