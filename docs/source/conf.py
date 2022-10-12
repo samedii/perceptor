@@ -30,10 +30,6 @@ extensions = [
     "sphinx_rtd_theme",
 ]
 
-autoapi_dirs = ["../../perceptor"]
-
-autoapi_ignore = [""]
-
 templates_path = ["_templates"]
 exclude_patterns = []
 

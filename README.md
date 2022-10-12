@@ -14,16 +14,15 @@ Or, for the old timers:
 pip install perceptor
 ```
 
-## API
+## Interface
 
-Shortlist of available features.
+Shortlist of available features. See the [API reference](https://perceptor.readthedocs.io/en/latest/) for more information.
 
 ```python
 perceptor
   .drawers
     .BruteDiffusion
     .DeepImagePrior
-    .JPEG
     .Raw
     .RuDALLE
     .StyleGANXL
