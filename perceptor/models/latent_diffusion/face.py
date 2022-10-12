@@ -11,7 +11,7 @@ from . import diffusion_space
 CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 
 
-@cache
+# @cache
 class Face(torch.nn.Module):
     def __init__(self, eta=0.0):
         """

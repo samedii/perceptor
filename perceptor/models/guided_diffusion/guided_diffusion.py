@@ -10,7 +10,7 @@ from .create_models import create_openimages_model, create_pixelart_model
 from .predictions import Predictions
 
 
-@cache
+# @cache
 class GuidedDiffusion(torch.nn.Module):
     def __init__(self, name="standard"):
         """

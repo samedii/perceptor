@@ -21,6 +21,7 @@ class CLIP(LossInterface):
                 - ViT-B-16
                 - ViT-L-14
                 - ViT-L-14-336
+
         """
         super().__init__()
         self.name = name

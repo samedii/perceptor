@@ -10,7 +10,7 @@ from perceptor.utils import cache
 from . import diffusion_space
 
 
-@cache
+# @cache
 class SuperResolution(torch.nn.Module):
     def __init__(self, eta=1.0, convolutional=False, kernel_size=128, stride=64):
         super().__init__()

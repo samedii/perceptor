@@ -11,7 +11,7 @@ from . import diffusion_space
 CONFIG_DIR = Path(__file__).resolve().parent / "configs"
 
 
-@cache
+# @cache
 class Text2Image(torch.nn.Module):
     def __init__(self, guidance_scale=5, eta=0.0):
         super().__init__()

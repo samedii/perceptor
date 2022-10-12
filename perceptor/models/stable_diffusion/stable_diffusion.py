@@ -13,7 +13,7 @@ from .predictions import Predictions
 from .conditioning import Conditioning
 
 
-@cache
+# @cache
 class StableDiffusion(torch.nn.Module):
     def __init__(
         self, name="CompVis/stable-diffusion-v1-4", fp16=False, auth_token=True

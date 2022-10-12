@@ -60,10 +60,10 @@ def gradient_checkpoint(tensor: Tensor) -> GradientCheckpoint:
 
     Usage:
 
-        checkpoint = gradient_checkpoint(images)
-        for text_loss in text_losses:
-            text_loss(checkpoint.tensor()).backward()
-        checkpoint.continue_backward()
+    >>> checkpoint = gradient_checkpoint(images)
+    >>> for text_loss in text_losses:
+    >>>     text_loss(checkpoint.tensor()).backward()
+    >>> checkpoint.continue_backward()
     """
     return GradientCheckpoint(tensor)
 

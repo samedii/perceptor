@@ -3,7 +3,13 @@ from torchvision.transforms.functional import to_pil_image
 from lantern import Tensor
 
 
-def pil_image(images: Tensor) -> Image:
+def pil_image(images: Tensor.dims("NCHW")) -> Image:
+    """
+    Convert a tensor to a PIL image.
+
+    Args:
+        images: a tensor of shape (N, C, H, W)
+    """
     if images.max() > 1 or images.min() < 0:
         print("Warning: images are not in range [0, 1]")
     n, c, h, w = images.shape
