@@ -222,7 +222,9 @@ def test_conditioned_velocity_diffusion():
 def test_convert_sigma_ts():
     diffusion = VelocityDiffusion("cc12m_1_cfg")
     from_ts = 0.3
-    assert from_ts == diffusion.sigmas_to_ts(diffusion.sigmas(from_ts))
+    assert (
+        from_ts - diffusion.sigmas_to_ts(diffusion.sigmas(from_ts)).squeeze()
+    ).abs() <= 1e-5
 
 
 def test_schedule_ts():

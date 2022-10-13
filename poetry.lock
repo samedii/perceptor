@@ -346,28 +346,29 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "diffusers"
-version = "0.2.4"
+version = "0.4.2"
 description = "Diffusers"
 category = "main"
 optional = false
-python-versions = ">=3.6.0"
+python-versions = ">=3.7.0"
 
 [package.dependencies]
 filelock = "*"
-huggingface-hub = ">=0.8.1,<1.0"
+huggingface-hub = ">=0.10.0"
 importlib-metadata = "*"
 numpy = "*"
-Pillow = "*"
+Pillow = "<10.0"
 regex = "!=2019.12.17"
 requests = "*"
-torch = ">=1.4"
 
 [package.extras]
-dev = ["accelerate", "black (>=22.0,<23.0)", "datasets", "flake8 (>=3.8.3)", "hf-doc-builder", "isort (>=5.5.4)", "modelcards", "pytest", "tensorboard"]
-docs = ["hf-doc-builder"]
-quality = ["black (>=22.0,<23.0)", "flake8 (>=3.8.3)", "isort (>=5.5.4)"]
-test = ["pytest"]
-training = ["accelerate", "datasets", "modelcards", "tensorboard"]
+dev = ["accelerate (>=0.11.0)", "black (==22.8)", "datasets", "flake8 (>=3.8.3)", "flax (>=0.4.1)", "hf-doc-builder (>=0.3.0)", "isort (>=5.5.4)", "jax (>=0.2.8,!=0.3.2,<=0.3.6)", "jaxlib (>=0.1.65,<=0.3.6)", "modelcards (>=0.1.4)", "onnxruntime", "pytest", "pytest-timeout", "pytest-xdist", "scipy", "tensorboard", "torch (>=1.4)", "torchvision", "transformers (>=4.21.0)"]
+docs = ["hf-doc-builder (>=0.3.0)"]
+flax = ["flax (>=0.4.1)", "jax (>=0.2.8,!=0.3.2,<=0.3.6)", "jaxlib (>=0.1.65,<=0.3.6)"]
+quality = ["black (==22.8)", "flake8 (>=3.8.3)", "hf-doc-builder (>=0.3.0)", "isort (>=5.5.4)"]
+test = ["accelerate (>=0.11.0)", "datasets", "onnxruntime", "pytest", "pytest-timeout", "pytest-xdist", "scipy", "torchvision", "transformers (>=4.21.0)"]
+torch = ["torch (>=1.4)"]
+training = ["accelerate (>=0.11.0)", "datasets", "modelcards (>=0.1.4)", "tensorboard"]
 
 [[package]]
 name = "dill"
@@ -2518,7 +2519,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "9bcc61b386ec5674141dd965f966afb465128a9f7d0e22e584b5600cd381ee94"
+content-hash = "9009eb71342578d1b1f1313a1eb739d9b8a6119d72a4915cf3142ff3c8b6469e"
 
 [metadata.files]
 absl-py = [
@@ -2837,8 +2838,8 @@ defusedxml = [
     {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
 ]
 diffusers = [
-    {file = "diffusers-0.2.4-py3-none-any.whl", hash = "sha256:176deac6c83cb5690a147ef74e4edebb7ca1e58974825b5baaf4e3df7ace609a"},
-    {file = "diffusers-0.2.4.tar.gz", hash = "sha256:01b272566ba2ddfafa7ca0c9259f151ea7b91ec648099ceaf29162117c5b0405"},
+    {file = "diffusers-0.4.2-py3-none-any.whl", hash = "sha256:dc9aa1947c2f32bbc17527f54cf22f20eec735b60a6857b89ebfd2848066b093"},
+    {file = "diffusers-0.4.2.tar.gz", hash = "sha256:c116fce0b75f1ae4cd9de63e0e5606b16c0ee40aa5204471ba23dc97632f1b52"},
 ]
 dill = [
     {file = "dill-0.3.5.1-py2.py3-none-any.whl", hash = "sha256:33501d03270bbe410c72639b350e941882a8b0fd55357580fbc873fba0c59302"},

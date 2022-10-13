@@ -16,7 +16,7 @@ from .conditioning import Conditioning
 # @cache
 class StableDiffusion(torch.nn.Module):
     def __init__(
-        self, name="CompVis/stable-diffusion-v1-4", fp16=False, auth_token=True
+        self, name="CompVis/stable-diffusion-v1-4", fp16=True, auth_token=True
     ):
         """
         Args:
@@ -37,12 +37,14 @@ class StableDiffusion(torch.nn.Module):
             name,
             scheduler=scheduler,
             use_auth_token=auth_token,
-            **dict(
-                revision="fp16",
-                torch_dtype=torch.float16,
-            )
-            if fp16
-            else dict(),
+            **(
+                dict(
+                    revision="fp16",
+                    torch_dtype=torch.float16,
+                )
+                if fp16
+                else dict()
+            ),
         )
 
         self.vae = pipeline.vae
@@ -124,13 +126,15 @@ class StableDiffusion(torch.nn.Module):
             raise Exception(f"Width must be divisible by 32, got {w}")
         return (
             0.18215
-            * self.vae.encode(diffusion_space.encode(images.to(self.device))).mode()
+            * self.vae.encode(
+                diffusion_space.encode(images.to(self.device))
+            ).latent_dist.mode()
         )
 
     def decode(
         self, latents: lantern.Tensor.dims("NCHW").float()
     ) -> lantern.Tensor.dims("NCHW"):
-        return diffusion_space.decode(self.vae.decode(latents / 0.18215))
+        return diffusion_space.decode(self.vae.decode(latents / 0.18215).sample)
 
     @contextmanager
     def finetuneable_vae(self):
@@ -167,7 +171,10 @@ class StableDiffusion(torch.nn.Module):
             raise ValueError("Height must be divisible by 32")
         if w % 8 != 0:
             raise ValueError("Width must be divisible by 32")
-        return torch.randn((n, self.unet.in_channels, h // 8, w // 8)).to(self.device)
+        return (
+            torch.randn((n, self.unet.in_channels, h // 8, w // 8)).to(self.device)
+            * self.scheduler.init_noise_sigma
+        )
 
     def indices(self, indices) -> lantern.Tensor:
         if isinstance(indices, float) or isinstance(indices, int):
@@ -281,7 +288,9 @@ def test_stable_diffusion_step():
 
     # compare with diffusers
     scheduler = DDIMScheduler(
-        beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear"
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
     )
     scheduler.set_timesteps(1000)
     pipeline = StableDiffusionPipeline.from_pretrained(

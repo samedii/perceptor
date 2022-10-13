@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "perceptor"
 copyright = "2022, Richard Löwenström"
 author = "Richard Löwenström"
-release = "v0.6.2"
+release = "v0.6.3"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
