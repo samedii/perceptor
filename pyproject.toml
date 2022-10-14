@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "perceptor"
-version = "0.6.4"
+version = "0.6.5"
 description = "Modular image generation library"
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 readme = "README.md"
@@ -8,7 +8,7 @@ repository = "https://github.com/samedii/perceptor"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-torch = "^1.11.0"
+torch = "^1.12.1"
 torchvision = "*"
 numpy = "^1.22.2"
 tqdm = "^4.62.3"
@@ -30,19 +30,19 @@ ninja = "^1.10.2"
 lpips = "^0.1.4"
 pytorch-lantern = "^0.12.0"
 taming-transformers-rom1504 = "^0.0.6"
-diffusers = "^0.5.0"
+diffusers = "^0.5.1"
 open-clip-torch = "^2.0.2"
 pytorch-zero-lit = "^0.2.2"
+xformers = "^0.0.13"
+triton = "^1.1.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 ipykernel = "^6.8.0"
 pytest = "^7.0.0"
 black = "^22.1.0"
 flake8 = "^4.0.1"
 poethepoet = "^0.12.2"
 ipywidgets = "^7.6.5"
-
-[tool.poetry.group.dev.dependencies]
 Sphinx = "^5.2.3"
 sphinx-rtd-theme = "^1.0.0"
 sphinx-autodoc-typehints = "^1.19.4"

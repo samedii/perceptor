@@ -4,14 +4,26 @@ Modular image generation library.
 
 ## Install
 
-```
+```bash
 poetry add perceptor
 ```
 
 Or, for the old timers:
 
-```
+```bash
 pip install perceptor
+```
+
+### CUDA 11.3 (Support RTX cards)
+
+```bash
+poetry run pip uninstall torch torchvision -y && poetry run pip install torch==1.12.1 torchvision==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu113
+```
+
+_Stable Diffusion Flash Attention optimization with xformers_.
+
+```bash
+poetry run pip uninstall triton xformers -y && poetry run pip install triton xformers
 ```
 
 ## Interface
