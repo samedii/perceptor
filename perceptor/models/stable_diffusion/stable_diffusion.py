@@ -6,17 +6,29 @@ import torch
 import lantern
 from transformers import CLIPTokenizer, CLIPTextModel, logging
 from diffusers import StableDiffusionPipeline, DDPMScheduler
+import diffusers.models
 
 from perceptor.utils import cache
 from . import diffusion_space
 from .predictions import Predictions
 from .conditioning import Conditioning
 
+try:
+    from . import attention
+
+    XFORMERS_INSTALLED = True
+except ImportError:
+    XFORMERS_INSTALLED = False
+
 
 # @cache
 class StableDiffusion(torch.nn.Module):
     def __init__(
-        self, name="CompVis/stable-diffusion-v1-4", fp16=True, auth_token=True
+        self,
+        name="CompVis/stable-diffusion-v1-4",
+        fp16=True,
+        auth_token=True,
+        flash_attention=True,
     ):
         """
         Args:
@@ -32,6 +44,20 @@ class StableDiffusion(torch.nn.Module):
         scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear"
         )
+
+        if XFORMERS_INSTALLED and flash_attention:
+            # monkeypatch xformers flash attention
+            patch = {
+                "AttentionBlock",
+                "FeedForward",
+                "CrossAttention",
+                "SpatialTransformer",
+            }
+
+            for attribute in patch:
+                setattr(
+                    diffusers.models.attention, attribute, getattr(attention, attribute)
+                )
 
         pipeline = StableDiffusionPipeline.from_pretrained(
             name,
