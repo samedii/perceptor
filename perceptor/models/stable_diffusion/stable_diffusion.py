@@ -394,9 +394,7 @@ def test_stable_diffusion_step():
         compare_next_diffused_latents[0, 0, 0, 0],
         atol=1e-3,
     )
-    assert torch.allclose(
-        next_diffused_latents, compare_next_diffused_latents, atol=1e-3
-    )
+    assert next_diffused_latents.sub(compare_next_diffused_latents).abs().max() <= 1e-3
 
 
 def test_stable_diffusion():
