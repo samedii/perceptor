@@ -1,5 +1,4 @@
-from json import encoder
-from typing import Optional
+from typing import Optional, Literal, Union
 from contextlib import contextmanager
 import copy
 import torch
@@ -8,7 +7,6 @@ from transformers import CLIPTokenizer, CLIPTextModel, logging
 from diffusers import StableDiffusionPipeline, DDPMScheduler
 import diffusers.models
 
-from perceptor.utils import cache
 from . import diffusion_space
 from .predictions import Predictions
 from .conditioning import Conditioning
@@ -25,18 +23,27 @@ except ImportError:
 class StableDiffusion(torch.nn.Module):
     def __init__(
         self,
-        name="CompVis/stable-diffusion-v1-4",
-        fp16=True,
-        auth_token=True,
-        flash_attention=True,
+        name: str = "runwayml/stable-diffusion-v1-5",
+        fp16: bool = True,
+        auth_token: Union[bool, str] = True,
+        flash_attention: bool = True,
+        attention_slicing: Optional[Union[int, Literal["auto"]]] = None,
     ):
         """
+        Stable Diffusion text2image model.
+
         Args:
-            name: The name of the model. Available models are:
+            name (str, optional): Name of the model. Defaults to "runwayml/stable-diffusion-v1-5". Available models are:
+                - runwayml/stable-diffusion-v1-5
                 - CompVis/stable-diffusion-v1-4 (512x512)
                 - CompVis/stable-diffusion-v1-3 (512x512)
                 - CompVis/stable-diffusion-v1-2 (512x512)
                 - CompVis/stable-diffusion-v1-1 (256x256)
+                - Path to weights
+            fp16 (bool, optional): Whether to use mixed precision. Defaults to True.
+            auth_token (bool, optional): Whether to use an auth token. Defaults to True.
+            flash_attention (bool, optional): Whether to use flash attention. Defaults to True.
+            attention_slicing (Union[int, Literal["auto"]], optional): Number of attention steps. Defaults to None. Options are "auto" or an integer.
         """
         super().__init__()
         self.name = name
@@ -77,6 +84,12 @@ class StableDiffusion(torch.nn.Module):
         self.unet = pipeline.unet
         self.feature_extractor = pipeline.feature_extractor
         self.scheduler = pipeline.scheduler
+
+        if attention_slicing is not None:
+            if attention_slicing == "auto":
+                attention_slicing = 2
+            slice_size = self.unet.config.attention_head_dim // attention_slicing
+            self.unet.set_attention_slice(slice_size)
 
         self.schedule_alphas = torch.nn.Parameter(
             self.scheduler.alphas_cumprod.sqrt(), requires_grad=False
@@ -273,7 +286,19 @@ class StableDiffusion(torch.nn.Module):
             truncation=True,
             return_tensors="pt",
         )
-        text_encodings = text_encoder(tokenized_text.input_ids.to(self.device))[0]
+        text_input_ids = tokenized_text.input_ids
+
+        if text_input_ids.shape[-1] > tokenizer.model_max_length:
+            removed_text = tokenizer.batch_decode(
+                text_input_ids[:, tokenizer.model_max_length :]
+            )
+            print(
+                "The following part of your input was truncated because CLIP can only handle sequences up to"
+                f" {tokenizer.model_max_length} tokens: {removed_text}"
+            )
+            text_input_ids = text_input_ids[:, : tokenizer.model_max_length]
+
+        text_encodings = text_encoder(text_input_ids.to(self.device))[0]
         return Conditioning(encodings=text_encodings)
 
     def diffuse_latents(self, denoised_latents, indices, noise=None) -> lantern.Tensor:
@@ -282,6 +307,12 @@ class StableDiffusion(torch.nn.Module):
             noise = torch.randn_like(denoised_latents)
         alphas, sigmas = self.alphas(indices), self.sigmas(indices)
         return denoised_latents * alphas + noise * sigmas
+
+
+def test_stable_diffusion_attention_slicing():
+    diffusion_model = StableDiffusion(attention_slicing="auto").cuda()
+    diffused_latents = diffusion_model.random_diffused_latents((1, 3, 256, 256))
+    diffusion_model.predictions(diffused_latents, 100, diffusion_model.conditioning())
 
 
 def test_stable_diffusion_step():
