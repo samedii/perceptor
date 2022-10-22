@@ -20,12 +20,6 @@ pip install perceptor
 poetry run pip uninstall torch torchvision -y && poetry run pip install torch==1.12.1 torchvision==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu113
 ```
 
-_Stable Diffusion Flash Attention optimization with xformers_.
-
-```bash
-poetry run pip uninstall triton xformers -y && poetry run pip install triton xformers
-```
-
 ## Interface
 
 Shortlist of available features. See the [API reference](https://perceptor.readthedocs.io/en/latest/) for more information.

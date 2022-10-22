@@ -8,12 +8,13 @@ from .guided_diffusion import GuidedDiffusion
 from . import latent_diffusion
 from .midas_depth import MidasDepth
 from .monster_diffusion import MonsterDiffusion
+from .open_clip import OpenCLIP
 from .owlvit import OWLViT
 from .ruclip import RuCLIP
 from .slip import SLIP
 from .stable_diffusion import StableDiffusion
 from .stylegan_xl import StyleGANXL
 from .super_resolution import SuperResolution
+from .transformers_openai_clip import TransformersOpenAICLIP
 from .velocity_diffusion import VelocityDiffusion
-from .open_clip import OpenCLIP
 from .simulacra_aesthetic import SimulacraAesthetic
