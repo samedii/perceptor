@@ -7,7 +7,11 @@ import torch.nn.functional as F
 import kornia
 import lantern
 from transformers import CLIPTokenizer, CLIPTextModel, logging
-from diffusers import StableDiffusionPipeline, DDPMScheduler
+from diffusers import (
+    DDPMScheduler,
+    AutoencoderKL,
+    UNet2DConditionModel,
+)
 import diffusers.models
 
 import perceptor
@@ -29,6 +33,7 @@ class StableDiffusion(torch.nn.Module):
     def __init__(
         self,
         name: str = "runwayml/stable-diffusion-v1-5",
+        decoder_name: Optional[str] = "stabilityai/sd-vae-ft-mse",
         fp16: bool = True,
         auth_token: Union[bool, str] = True,
         flash_attention: bool = True,
@@ -38,24 +43,27 @@ class StableDiffusion(torch.nn.Module):
         Stable Diffusion text2image model.
 
         Args:
-            name (str, optional): Name of the model. Defaults to "runwayml/stable-diffusion-v1-5". Available models are:
+            name (str): Name of the model. Defaults to "runwayml/stable-diffusion-v1-5".
+                Available models are:
                 - runwayml/stable-diffusion-v1-5 (512x512)
                 - runwayml/stable-diffusion-inpainting (512x512)
                 - CompVis/stable-diffusion-v1-4 (512x512)
                 - Huggingface model id
                 - Path to weights
-            fp16 (bool, optional): Whether to use mixed precision. Defaults to True.
-            auth_token (bool, optional): Whether to use an auth token. Defaults to True.
-            flash_attention (bool, optional): Whether to use flash attention. Defaults to True.
+            decoder_name (str, optional): Name of the decoder model. Defaults to "stabilityai/sd-vae-ft-mse".
+                Available models are:
+                - stabilityai/sd-vae-ft-mse
+                - stabilityai/sd-vae-ft-ema
+                - None (use the original decoder)
+            fp16 (bool): Whether to use mixed precision. Defaults to True.
+            auth_token (bool): Whether to use an auth token. Defaults to True.
+            flash_attention (bool): Whether to use flash attention. Defaults to True.
             attention_slicing (Union[int, Literal["auto"]], optional): Number of attention steps. Defaults to None.
                 Options are "auto" or an integer. Lowers VRAM usage but increases inference time.
         """
         super().__init__()
         self.name = name
-
-        scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear"
-        )
+        self.decoder_name = decoder_name
 
         if XFORMERS_INSTALLED and flash_attention:
             # monkeypatch xformers flash attention
@@ -71,24 +79,25 @@ class StableDiffusion(torch.nn.Module):
                     diffusers.models.attention, attribute, getattr(attention, attribute)
                 )
 
-        pipeline = StableDiffusionPipeline.from_pretrained(
-            name,
-            scheduler=scheduler,
-            use_auth_token=auth_token,
-            **(
-                dict(
-                    revision="fp16",
-                    torch_dtype=torch.float16,
-                )
-                if fp16
-                else dict()
-            ),
+        self.vae = AutoencoderKL.from_pretrained(
+            decoder_name or name, use_auth_token=auth_token
         )
 
-        self.vae = pipeline.vae
-        self.unet = pipeline.unet
-        self.feature_extractor = pipeline.feature_extractor
-        self.scheduler = pipeline.scheduler
+        config = (
+            dict(
+                use_auth_token=auth_token,
+                revision="fp16",
+                torch_dtype=torch.float16,
+            )
+            if fp16
+            else dict(use_auth_token=auth_token)
+        )
+        self.unet = UNet2DConditionModel.from_pretrained(
+            name, subfolder="unet", **config
+        )
+        self.scheduler = DDPMScheduler(
+            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear"
+        )
 
         if attention_slicing is not None:
             if attention_slicing == "auto":
@@ -351,6 +360,8 @@ class StableDiffusion(torch.nn.Module):
             inpainting_latents = self.latents(
                 inpainting_images * inpainting_masks.le(0.5)
                 + 0.5 * inpainting_masks.gt(0.5).float()
+                # important that this matches the mask given to the model
+                # not certain that it matches at the moment when doing blurring
             )
         else:
             inpainting_latent_masks = None
@@ -374,15 +385,16 @@ class StableDiffusion(torch.nn.Module):
     @torch.no_grad()
     def sample(
         self,
-        text,
-        from_index=999,
-        to_index=0,
-        n_steps=50,
-        guidance_scale=7.0,
-        n_resample=0,
-        init_image=None,
-        inpainting_mask=None,
-        replace_diffused=True,
+        text: str,
+        from_index: int = 999,
+        to_index: int = 0,
+        n_steps: int = 50,
+        guidance_scale: float = 7.0,
+        n_resample: int = 0,
+        init_image: Optional[lantern.Tensor] = None,
+        inpainting_mask: Optional[lantern.Tensor] = None,
+        mask_blur: float = 4.0,
+        replace_diffused: bool = True,
     ):
         """
         Helper function to sample a single image.
@@ -396,14 +408,21 @@ class StableDiffusion(torch.nn.Module):
             n_resample: The number of times to resample at each step
             init_image: The initial image to start sampling from (also used for inpainting)
             inpainting_mask: The mask to use for inpainting
+            mask_blur: The amount of blur to apply to the inpainting mask
             replace_diffused: Whether to replace the diffused latents at each step (peeks into the init image
                 so it's not true inpainting)
         """
         neutral_conditioning = self.conditioning(
-            texts=[""], inpainting_masks=inpainting_mask, inpainting_images=init_image
+            texts=[""],
+            inpainting_masks=inpainting_mask,
+            inpainting_images=init_image,
+            mask_blur=mask_blur,
         )
         positive_conditioning = self.conditioning(
-            texts=[text], inpainting_masks=inpainting_mask, inpainting_images=init_image
+            texts=[text],
+            inpainting_masks=inpainting_mask,
+            inpainting_images=init_image,
+            mask_blur=mask_blur,
         )
 
         schedule_indices = self.schedule_indices(
@@ -480,7 +499,9 @@ def test_stable_diffusion_attention_slicing():
 
 def test_stable_diffusion():
     for predictions in (
-        StableDiffusion().cuda().sample("photograph of a playful cat", to_index=20)
+        StableDiffusion(fp16=False)
+        .cuda()
+        .sample("photograph of a playful cat", to_index=20)
     ):
         pass
     perceptor.utils.pil_image(predictions.denoised_images.clamp(0, 1)).save(
@@ -531,9 +552,7 @@ def test_stable_diffusion_inpainting():
     inpainting_mask[:, :, :, 128:] = 1.0
 
     torch.set_grad_enabled(False)
-    diffusion_model = StableDiffusion(
-        "runwayml/stable-diffusion-inpainting", fp16=False
-    ).cuda()
+    diffusion_model = StableDiffusion("runwayml/stable-diffusion-inpainting").cuda()
 
     for predictions in diffusion_model.sample(
         "photograph of playful lions",
@@ -546,13 +565,14 @@ def test_stable_diffusion_inpainting():
         replace_diffused=True,
         n_resample=4,
     ):
-        utils.pil_image(predictions.denoised_images.clamp(0, 1)).save(
-            "tests/stable_diffusion_inpainting.png"
-        )
+        pass
+    utils.pil_image(predictions.denoised_images.clamp(0, 1)).save(
+        "tests/stable_diffusion_inpainting.png"
+    )
 
 
 def test_stable_diffusion_step():
-    from diffusers import DDIMScheduler
+    from diffusers import DDIMScheduler, StableDiffusionPipeline
 
     torch.set_grad_enabled(False)
     device = torch.device("cuda")
