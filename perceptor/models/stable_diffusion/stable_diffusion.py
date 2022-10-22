@@ -4,6 +4,7 @@ from tqdm import tqdm
 import copy
 import torch
 import torch.nn.functional as F
+import kornia
 import lantern
 from transformers import CLIPTokenizer, CLIPTextModel, logging
 from diffusers import StableDiffusionPipeline, DDPMScheduler
@@ -312,7 +313,7 @@ class StableDiffusion(torch.nn.Module):
 
         return text_encoder(text_input_ids.to(self.device))[0]
 
-    def latent_masks(self, masks):
+    def latent_masks(self, masks, blur):
         n, c, h, w = masks.shape
         if h % 8 != 0:
             raise ValueError("Height must be divisible by 8")
@@ -322,8 +323,12 @@ class StableDiffusion(torch.nn.Module):
             raise ValueError("Masks must be 1-channel")
         if masks.gt(1).any() or masks.lt(0).any():
             raise ValueError("Masks must be between 0 and 1")
+
+        if blur is not None and blur > 0:
+            ks = int(blur * 2) + 1
+            masks = kornia.filters.gaussian_blur2d(masks, (ks, ks), (blur, blur))
         return F.interpolate(
-            masks.to(self.device).float(), size=(h // 8, w // 8), mode="nearest"
+            masks.to(self.device).float(), size=(h // 8, w // 8), mode="bilinear"
         )
 
     def conditioning(
@@ -331,7 +336,7 @@ class StableDiffusion(torch.nn.Module):
         texts: List[str] = [""],
         inpainting_masks: Optional[lantern.Tensor.dims("NCHW")] = None,
         inpainting_images: Optional[lantern.Tensor.dims("NCHW")] = None,
-        # mask_blur=4.0,  # TODO
+        mask_blur=4.0,
     ) -> Conditioning:
         """
         Create a conditioning object from a list of texts. Unconditional is an empty string.
@@ -342,7 +347,7 @@ class StableDiffusion(torch.nn.Module):
             inpainting_images: A tensor of images to condition on. Must be 3-channel and between 0 and 1
         """
         if self.name == "runwayml/stable-diffusion-inpainting":
-            inpainting_latent_masks = self.latent_masks(inpainting_masks)
+            inpainting_latent_masks = self.latent_masks(inpainting_masks, mask_blur)
             inpainting_latents = self.latents(
                 inpainting_images * inpainting_masks.le(0.5)
                 + 0.5 * inpainting_masks.gt(0.5).float()
@@ -377,8 +382,23 @@ class StableDiffusion(torch.nn.Module):
         n_resample=0,
         init_image=None,
         inpainting_mask=None,
-        replace_diffused=False,
+        replace_diffused=True,
     ):
+        """
+        Helper function to sample a single image.
+
+        Args:
+            text: The text to condition on
+            from_index: The index to start sampling from
+            to_index: The index to end sampling at
+            n_steps: The number of steps to take between from_index and to_index
+            guidance_scale: The scale of the guidance signal
+            n_resample: The number of times to resample at each step
+            init_image: The initial image to start sampling from (also used for inpainting)
+            inpainting_mask: The mask to use for inpainting
+            replace_diffused: Whether to replace the diffused latents at each step (peeks into the init image
+                so it's not true inpainting)
+        """
         neutral_conditioning = self.conditioning(
             texts=[""], inpainting_masks=inpainting_mask, inpainting_images=init_image
         )
@@ -437,9 +457,11 @@ class StableDiffusion(torch.nn.Module):
 
             if replace_diffused and inpainting_mask is not None:
                 # this is peeking into the original masked image
-                diffused_latents = self.diffuse_latents(init_latents, to_index) * (
-                    1 - positive_conditioning.inpainting_latent_masks
-                ) + diffused_latents * (positive_conditioning.inpainting_latent_masks)
+                diffused_latents = (
+                    self.diffuse_latents(init_latents, to_index)
+                    * (1 - positive_conditioning.inpainting_latent_masks)
+                    + diffused_latents * positive_conditioning.inpainting_latent_masks
+                )
 
             yield positive_predictions
 
@@ -518,15 +540,15 @@ def test_stable_diffusion_inpainting():
         from_index=600,
         to_index=20,
         n_steps=50,
+        guidance_scale=7,
         init_image=init_image,
         inpainting_mask=inpainting_mask,
         replace_diffused=True,
         n_resample=4,
     ):
-        pass
-    utils.pil_image(predictions.denoised_images.clamp(0, 1)).save(
-        "tests/stable_diffusion_inpainting.png"
-    )
+        utils.pil_image(predictions.denoised_images.clamp(0, 1)).save(
+            "tests/stable_diffusion_inpainting.png"
+        )
 
 
 def test_stable_diffusion_step():

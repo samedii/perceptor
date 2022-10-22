@@ -178,10 +178,27 @@ class Predictions(lantern.FunctionalBase):
             / clamp_value
         )
 
+    def latent_dynamic_threshold(self, quantile=0.95) -> Predictions:
+        if quantile is None:
+            return self
+
+        dynamic_threshold = torch.quantile(
+            self.predicted_noise.flatten(start_dim=1).abs(), quantile, dim=1
+        ).clamp(min=2.5)
+        predicted_noise = clamp_with_grad(
+            self.predicted_noise,
+            -dynamic_threshold,
+            dynamic_threshold,
+        )
+        return self.forced_predicted_noise(predicted_noise)
+
     def dynamic_threshold(self, quantile=0.95) -> Predictions:
         """
         Thresholding heuristic from imagen paper
         """
+        if quantile is None:
+            return self
+
         denoised_xs = diffusion_space.encode(self.decode(self.denoised_latents))
         dynamic_threshold = torch.quantile(
             denoised_xs.flatten(start_dim=1).abs(), quantile, dim=1
