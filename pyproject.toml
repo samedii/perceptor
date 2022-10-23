@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "perceptor"
-version = "0.6.6"
+version = "0.6.7"
 description = "Modular image generation library"
 authors = ["Richard Löwenström <samedii@gmail.com>", "dribnet"]
 readme = "README.md"
